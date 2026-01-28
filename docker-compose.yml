@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  redis:
+    image: redis:alpine
+    container_name: iot_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+  emqx:
+    image: emqx:latest
+    container_name: iot_emqx
+    ports:
+      - "1883:1883"      # MQTT port
+      - "8083:8083"      # WebSocket port
+      - "18083:18083"    # Dashboard port
+    volumes:
+      - emqx_data:/opt/emqx/data
+    restart: unless-stopped
+
+volumes:
+  redis_data:
+  emqx_data:
