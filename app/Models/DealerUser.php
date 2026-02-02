@@ -5,9 +5,13 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Laravel\Sanctum\HasApiTokens;
 
-class DealerUser extends Model
+class DealerUser extends Authenticatable
 {
+    use HasApiTokens;
+
     protected $fillable = [
         'dealer_id',
         'name',

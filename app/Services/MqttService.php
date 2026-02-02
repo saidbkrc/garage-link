@@ -5,7 +5,7 @@ namespace App\Services;
 use App\Models\Command;
 use App\Models\Device;
 use App\Models\DeviceLog;
-use Illuminate\Support\Facades\Redis;
+use Illuminate\Support\Facades\Cache;
 use PhpMqtt\Client\Facades\MQTT;
 
 class MqttService
@@ -51,7 +51,7 @@ class MqttService
 
     protected function updateDeviceState(Device $device, Command $command, array $params): void
     {
-        $state = Redis::hgetall("device:{$device->id}:state") ?: [];
+        $state = Cache::get("device:{$device->id}:state", []);
 
         if ($command->slug === 'turn_on') {
             $state['power'] = 'on';
@@ -68,13 +68,12 @@ class MqttService
         $state['last_command'] = $command->slug;
         $state['last_updated'] = now()->toDateTimeString();
 
-        Redis::hmset("device:{$device->id}:state", $state);
-        Redis::expire("device:{$device->id}:state", 86400);
+        Cache::put("device:{$device->id}:state", $state, 86400);
     }
 
     public function getDeviceState(Device $device): array
     {
-        return Redis::hgetall("device:{$device->id}:state") ?: [];
+        return Cache::get("device:{$device->id}:state", []);
     }
 
     public function publishRaw(string $topic, string $message): void
