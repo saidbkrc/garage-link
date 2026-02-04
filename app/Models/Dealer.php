@@ -30,4 +30,29 @@ class Dealer extends Model
     {
         return $this->hasMany(Device::class);
     }
+
+    public function rooms()
+    {
+        return $this->hasMany(Room::class);
+    }
+
+    public function scenes()
+    {
+        return $this->hasMany(Scene::class);
+    }
+
+    public function schedules()
+    {
+        return $this->hasMany(Schedule::class);
+    }
+
+    public function alerts()
+    {
+        return $this->hasMany(Alert::class);
+    }
+
+    public function energyUsages()
+    {
+        return $this->hasMany(EnergyUsage::class);
+    }
 }

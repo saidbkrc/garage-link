@@ -38,6 +38,6 @@ Route::prefix('v1')->group(function () {
         Route::get('/device-types/{id}', [DeviceTypeController::class, 'show']);
 
         // Dashboard
-        Route::get('/dashboard/stats', [DashboardController::class, 'stats']);
+        Route::get('/dashboard/stats', [DashboardController::class, 'index']);
     });
 });

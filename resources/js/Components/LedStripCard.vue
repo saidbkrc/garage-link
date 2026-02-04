@@ -21,9 +21,7 @@
         <div class="flex justify-between items-start relative z-10">
             <button @click="togglePower"
                 class="size-12 rounded-2xl flex items-center justify-center transition-all"
-                :class="isOn
-                    ? 'shadow-[0_0_20px_var(--glow-color)]'
-                    : 'bg-slate-200 dark:bg-slate-700 text-slate-400'"
+                :class="isOn ? 'shadow-[0_0_20px_var(--glow-color)]' : 'bg-slate-200 dark:bg-slate-700 text-slate-400'"
                 :style="isOn ? {
                     backgroundColor: selectedColor + '33',
                     color: selectedColor,
@@ -43,74 +41,59 @@
             <span class="material-symbols-outlined text-white text-lg drop-shadow">palette</span>
         </button>
 
-        <!-- İsim + Durum -->
-        <div class="mt-8">
-            <h3 class="font-bold text-lg" :class="isOn ? '' : 'text-slate-600 dark:text-slate-400'">
-                {{ device.name }}
-            </h3>
-            <template v-if="isOn">
-                <p class="text-xs text-slate-500 dark:text-slate-400">
-                    {{ device.device_type?.name || 'LED Işık' }} · {{ device.location || 'Ana Oda' }}
-                </p>
-            </template>
-            <template v-else>
-                <div
-                    class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-800 text-[10px] font-bold text-slate-500 mt-1">
-                    <span class="size-1.5 rounded-full" :class="device.is_online ? 'bg-green-500' : 'bg-slate-400'"></span>
-                    {{ device.is_online ? 'ONLINE' : 'OFFLINE' }}
-                </div>
-            </template>
+        <!-- İsim + Tip Badge -->
+        <div class="mt-6">
+            <div class="flex items-center gap-2">
+                <h3 class="font-bold text-lg" :class="isOn ? '' : 'text-slate-600 dark:text-slate-400'">
+                    {{ name }}
+                </h3>
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 dark:bg-purple-900/30 text-purple-600">
+                    RGB
+                </span>
+            </div>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">{{ location }}</p>
         </div>
 
         <!-- Parlaklık -->
-        <div class="mt-6 space-y-3" :class="isOn ? '' : 'opacity-30'">
+        <div class="mt-4 space-y-2" :class="isOn ? '' : 'opacity-30'">
             <div class="flex justify-between text-xs font-bold text-slate-400">
                 <span>Parlaklık</span>
                 <span :style="isOn ? { color: selectedColor } : {}">{{ brightness }}%</span>
             </div>
-            <div class="relative">
-                <input type="range" min="0" max="100" v-model="brightness" @input="updateSliderBackground" @change="changeBrightness" :disabled="!isOn"
-                    ref="sliderRef"
-                    class="w-full h-1.5 rounded-full appearance-none cursor-pointer bg-slate-200 dark:bg-slate-700"
-                    :style="sliderStyle" />
-            </div>
+            <input type="range" min="0" max="100" v-model="brightness" @change="changeBrightness" :disabled="!isOn"
+                class="w-full h-1.5 rounded-full appearance-none cursor-pointer"
+                :style="sliderStyle" />
         </div>
     </div>
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount, watch, computed } from 'vue';
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
 
 const props = defineProps({
-    device: { type: Object, required: true },
-    state: { type: Object, default: () => ({}) }
+    name: { type: String, default: 'LED Şerit' },
+    location: { type: String, default: 'Salon' },
+    initialState: { type: Boolean, default: true },
+    initialBrightness: { type: Number, default: 75 },
+    initialColor: { type: String, default: '#67E8F9' }
 });
 
 const emit = defineEmits(['command']);
 
-const isOn = ref(props.state?.power === 'on');
-const brightness = ref(props.state?.brightness || 75);
-const selectedColor = ref('#67E8F9');
-const customColor = ref('#67E8F9');
+const isOn = ref(props.initialState);
+const brightness = ref(props.initialBrightness);
+const selectedColor = ref(props.initialColor);
+const customColor = ref(props.initialColor);
 const showColorPicker = ref(false);
 const colorPickerRef = ref(null);
-const sliderRef = ref(null);
 
 const presetColors = [
     '#67E8F9', '#FB923C', '#F87171', '#4ADE80', '#A855F7',
-    '#FACC15', '#60A5FA', '#F472B6', '#69888c', '#2DD4BF'
+    '#FACC15', '#60A5FA', '#F472B6', '#FFFFFF', '#2DD4BF'
 ];
 
-// Click outside ile kapat
-const handleClickOutside = (e) => {
-    if (showColorPicker.value && colorPickerRef.value && !colorPickerRef.value.contains(e.target)) {
-        showColorPicker.value = false;
-    }
-};
-
 const sliderStyle = computed(() => {
-    if (!isOn.value) return {};
-    
+    if (!isOn.value) return { background: '#e2e8f0' };
     const percent = brightness.value;
     return {
         background: `linear-gradient(to right, ${selectedColor.value} 0%, ${selectedColor.value} ${percent}%, #e2e8f0 ${percent}%, #e2e8f0 100%)`,
@@ -118,45 +101,27 @@ const sliderStyle = computed(() => {
     };
 });
 
-const updateSliderBackground = () => {
-    // reactive güncelleme için
+const handleClickOutside = (e) => {
+    if (showColorPicker.value && colorPickerRef.value && !colorPickerRef.value.contains(e.target)) {
+        showColorPicker.value = false;
+    }
 };
 
-onMounted(() => {
-    document.addEventListener('click', handleClickOutside);
-});
-
-onBeforeUnmount(() => {
-    document.removeEventListener('click', handleClickOutside);
-});
+onMounted(() => document.addEventListener('click', handleClickOutside));
+onBeforeUnmount(() => document.removeEventListener('click', handleClickOutside));
 
 const togglePower = () => {
     isOn.value = !isOn.value;
     showColorPicker.value = false;
-    emit('command', {
-        deviceId: props.device.id,
-        slug: isOn.value ? 'turn_on' : 'turn_off',
-        params: { device_index: props.device.id }
-    });
+    emit('command', { type: 'power', value: isOn.value });
 };
 
 const changeBrightness = () => {
-    emit('command', {
-        deviceId: props.device.id,
-        slug: 'brightness',
-        params: { device_index: props.device.id, brightness: parseInt(brightness.value) }
-    });
+    emit('command', { type: 'brightness', value: brightness.value });
 };
 
 const changeColor = (color) => {
     selectedColor.value = color;
-    const r = parseInt(color.slice(1, 3), 16);
-    const g = parseInt(color.slice(3, 5), 16);
-    const b = parseInt(color.slice(5, 7), 16);
-    emit('command', {
-        deviceId: props.device.id,
-        slug: 'color',
-        params: { device_index: props.device.id, r, g, b }
-    });
+    emit('command', { type: 'color', value: color });
 };
 </script>

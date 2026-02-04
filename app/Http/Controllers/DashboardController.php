@@ -3,39 +3,29 @@
 namespace App\Http\Controllers;
 
 use App\Models\Device;
-use App\Models\DeviceType;
 use App\Models\Room;
 use App\Models\Scene;
 use App\Models\Alert;
-use App\Models\EnergyUsage;
-use Illuminate\Http\Request;
 use Inertia\Inertia;
 
 class DashboardController extends Controller
 {
-    public function index(Request $request)
+    public function index()
     {
-        // Şimdilik sabit dealer_id (sonra auth'dan alınacak)
-        $dealerId = 1;
+        $dealerId = 1; // Şimdilik sabit, sonra auth'dan alınacak
 
         // İstatistikler
         $stats = [
             'total_devices' => Device::where('dealer_id', $dealerId)->count(),
             'online_devices' => Device::where('dealer_id', $dealerId)->where('is_online', true)->count(),
-            'active_devices' => Device::where('dealer_id', $dealerId)
-                ->where('is_online', true)
-                ->whereJsonContains('current_state->power', true)
-                ->count(),
             'total_energy_today' => Device::where('dealer_id', $dealerId)->sum('energy_today'),
             'active_alerts' => Alert::where('dealer_id', $dealerId)->where('is_read', false)->count(),
         ];
 
-        // Cihazları tipleriyle ve odalarıyla birlikte çek
+        // Cihazlar
         $devices = Device::with(['deviceType', 'room'])
             ->where('dealer_id', $dealerId)
             ->where('is_active', true)
-            ->orderBy('room_id')
-            ->orderBy('name')
             ->get()
             ->map(function ($device) {
                 return [
@@ -49,7 +39,6 @@ class DashboardController extends Controller
                     'is_online' => $device->is_online,
                     'state' => $device->current_state ?? [],
                     'config' => $device->config ?? [],
-                    'capabilities' => $device->capabilities ?? $device->deviceType?->capabilities ?? [],
                     'energy_today' => $device->energy_today,
                 ];
             });
@@ -63,22 +52,20 @@ class DashboardController extends Controller
         // Senaryolar
         $scenes = Scene::where('dealer_id', $dealerId)
             ->where('is_active', true)
-            ->orderBy('order')
             ->get();
 
-        // Son alarmlar
+        // Alarmlar
         $alerts = Alert::where('dealer_id', $dealerId)
             ->orderBy('created_at', 'desc')
             ->limit(5)
             ->get();
 
-        // Kullanıcı bilgisi (şimdilik mock)
+        // Kullanıcı (mock)
         $user = [
             'id' => 1,
             'name' => 'Admin User',
             'email' => 'admin@garagelink.com',
             'dealer_name' => 'Demo Bayi',
-            'token' => 'demo-token', // Gerçek uygulamada Sanctum token
         ];
 
         return Inertia::render('Dashboard', [
