@@ -40,6 +40,12 @@ return [
             'driver' => 'session',
             'provider' => 'users',
         ],
+
+        // Bayi guard'ı ekle
+        'dealer' => [
+            'driver' => 'session',
+            'provider' => 'dealer_users',
+        ],
     ],
 
     /*
@@ -65,10 +71,10 @@ return [
             'model' => env('AUTH_MODEL', App\Models\User::class),
         ],
 
-        // 'users' => [
-        //     'driver' => 'database',
-        //     'table' => 'users',
-        // ],
+        'dealer_users' => [
+            'driver' => 'eloquent',
+            'model' => App\Models\DealerUser::class,
+        ],
     ],
 
     /*
@@ -94,6 +100,13 @@ return [
         'users' => [
             'provider' => 'users',
             'table' => env('AUTH_PASSWORD_RESET_TOKEN_TABLE', 'password_reset_tokens'),
+            'expire' => 60,
+            'throttle' => 60,
+        ],
+
+        'dealer_users' => [
+            'provider' => 'dealer_users',
+            'table' => 'password_reset_tokens',
             'expire' => 60,
             'throttle' => 60,
         ],

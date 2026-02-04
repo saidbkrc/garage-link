@@ -1,65 +1,133 @@
 <template>
-    <aside
-        class="w-64 border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col fixed h-full z-50">
-        <div class="p-6">
-            <div class="flex items-center gap-3">
-                <div class="size-10 bg-primary rounded-xl flex items-center justify-center text-white">
-                    <span class="material-symbols-outlined filled-icon">hub</span>
+    <aside class="w-64 border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col fixed h-full z-30">
+        <div class="p-6 flex flex-col h-full">
+            
+            <!-- Logo -->
+            <div class="flex items-center gap-3 mb-10">
+                <div class="bg-primary rounded-lg p-2 text-white">
+                    <span class="material-symbols-outlined">hub</span>
                 </div>
                 <div>
-                    <h1 class="text-lg font-bold leading-none">PigaSoft</h1>
-                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">IoT Dealer Panel</p>
+                    <h1 class="text-lg font-bold leading-tight">PigaSoft</h1>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">IoT Dealer Portal</p>
                 </div>
             </div>
-        </div>
 
-        <nav class="flex-1 px-4 space-y-1">
-            <a v-for="item in menuItems" :key="item.slug" :href="item.href"
-                class="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors" :class="currentPage === item.slug
-                    ? 'bg-primary/10 text-primary font-medium'
-                    : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'">
-                <span class="material-symbols-outlined" :class="currentPage === item.slug ? 'filled-icon' : ''">
-                    {{ item.icon }}
-                </span>
-                <span>{{ item.label }}</span>
-            </a>
-        </nav>
+            <!-- Navigation -->
+            <nav class="flex-1 space-y-1">
+                <a href="/"
+                    class="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors"
+                    :class="isActive('Dashboard') 
+                        ? 'bg-primary/10 text-primary font-bold' 
+                        : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'">
+                    <span class="material-symbols-outlined" :class="isActive('Dashboard') ? 'fill-icon' : ''">dashboard</span>
+                    <span class="text-sm">Dashboard</span>
+                </a>
 
-        <div class="p-4 border-t border-slate-200 dark:border-slate-800">
-            <button @click="toggleDark"
-                class="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
-                <div class="flex items-center gap-3">
-                    <span class="material-symbols-outlined">dark_mode</span>
-                    <span>Dark Mode</span>
-                </div>
-                <div class="w-8 h-4 bg-slate-300 dark:bg-primary rounded-full relative transition-colors">
-                    <div class="absolute top-0.5 size-3 bg-white rounded-full transition-all"
-                        :class="isDark ? 'left-1' : 'right-1'"></div>
-                </div>
-            </button>
+                <a href="/devices"
+                    class="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors"
+                    :class="isActive('Cihazlar') 
+                        ? 'bg-primary/10 text-primary font-bold' 
+                        : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'">
+                    <span class="material-symbols-outlined" :class="isActive('Cihazlar') ? 'fill-icon' : ''">memory</span>
+                    <span class="text-sm">Cihazlar</span>
+                </a>
+
+                <a href="/rooms"
+                    class="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors"
+                    :class="isActive('Odalar') 
+                        ? 'bg-primary/10 text-primary font-bold' 
+                        : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'">
+                    <span class="material-symbols-outlined" :class="isActive('Odalar') ? 'fill-icon' : ''">meeting_room</span>
+                    <span class="text-sm">Odalar</span>
+                </a>
+
+                <a href="/scenes"
+                    class="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors"
+                    :class="isActive('Senaryolar') 
+                        ? 'bg-primary/10 text-primary font-bold' 
+                        : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'">
+                    <span class="material-symbols-outlined" :class="isActive('Senaryolar') ? 'fill-icon' : ''">play_circle</span>
+                    <span class="text-sm">Senaryolar</span>
+                </a>
+
+                <a href="/logs"
+                    class="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors"
+                    :class="isActive('Loglar') 
+                        ? 'bg-primary/10 text-primary font-bold' 
+                        : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'">
+                    <span class="material-symbols-outlined" :class="isActive('Loglar') ? 'fill-icon' : ''">history</span>
+                    <span class="text-sm">Loglar</span>
+                </a>
+
+                <!-- Separator -->
+                <div class="my-4 border-t border-slate-200 dark:border-slate-800"></div>
+                <p class="px-3 text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Ayarlar</p>
+
+                <a href="/users"
+                    class="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors"
+                    :class="isActive('Kullanıcılar') 
+                        ? 'bg-primary/10 text-primary font-bold' 
+                        : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'">
+                    <span class="material-symbols-outlined" :class="isActive('Kullanıcılar') ? 'fill-icon' : ''">group</span>
+                    <span class="text-sm">Kullanıcılar</span>
+                </a>
+
+                <a href="/settings"
+                    class="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors"
+                    :class="isActive('Ayarlar') 
+                        ? 'bg-primary/10 text-primary font-bold' 
+                        : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'">
+                    <span class="material-symbols-outlined" :class="isActive('Ayarlar') ? 'fill-icon' : ''">settings</span>
+                    <span class="text-sm">Ayarlar</span>
+                </a>
+            </nav>
+
+            <!-- Dark Mode Toggle -->
+            <div class="pt-4 border-t border-slate-200 dark:border-slate-800">
+                <button @click="toggleDarkMode"
+                    class="flex items-center justify-between w-full px-3 py-2.5 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                    <div class="flex items-center gap-3">
+                        <span class="material-symbols-outlined">{{ isDark ? 'light_mode' : 'dark_mode' }}</span>
+                        <span class="text-sm">{{ isDark ? 'Açık Tema' : 'Koyu Tema' }}</span>
+                    </div>
+                    <div class="w-10 h-5 rounded-full relative transition-colors"
+                        :class="isDark ? 'bg-primary' : 'bg-slate-300'">
+                        <div class="absolute top-0.5 size-4 bg-white rounded-full transition-all"
+                            :class="isDark ? 'left-5' : 'left-0.5'"></div>
+                    </div>
+                </button>
+            </div>
         </div>
     </aside>
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue';
 
-defineProps({
+const props = defineProps({
     currentPage: { type: String, default: 'Dashboard' }
 });
 
-const menuItems = [
-    { slug: 'Dashboard', label: 'Dashboard', icon: 'dashboard', href: '/panel' },
-    { slug: 'Devices', label: 'Cihazlar', icon: 'devices', href: '/panel/devices' },
-    { slug: 'Commands', label: 'Komutlar', icon: 'terminal', href: '/panel/commands' },
-    { slug: 'Logs', label: 'Loglar', icon: 'description', href: '/panel/logs' },
-    { slug: 'Users', label: 'Kullanıcılar', icon: 'group', href: '/panel/users' },
-];
+const isDark = ref(false);
 
-const isDark = ref(document.documentElement.classList.contains('dark'));
+onMounted(() => {
+    isDark.value = document.documentElement.classList.contains('dark');
+});
 
-const toggleDark = () => {
+const isActive = (page) => {
+    return props.currentPage === page;
+};
+
+const toggleDarkMode = () => {
     isDark.value = !isDark.value;
-    document.documentElement.classList.toggle('dark');
+    document.documentElement.classList.toggle('dark', isDark.value);
+    localStorage.setItem('darkMode', isDark.value ? 'true' : 'false');
 };
 </script>
+
+<style>
+.fill-icon {
+    font-variation-settings: 'FILL' 1;
+}
+</style>

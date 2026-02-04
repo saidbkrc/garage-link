@@ -2,15 +2,14 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 
 class DealerUser extends Authenticatable
 {
-    use HasApiTokens;
+    use HasApiTokens, HasFactory, Notifiable;
 
     protected $fillable = [
         'dealer_id',
@@ -27,16 +26,26 @@ class DealerUser extends Authenticatable
     ];
 
     protected $casts = [
+        'email_verified_at' => 'datetime',
+        'password' => 'hashed',
         'is_active' => 'boolean',
     ];
 
-    public function dealer(): BelongsTo
+    public function dealer()
     {
         return $this->belongsTo(Dealer::class);
     }
 
-    public function deviceLogs(): HasMany
+    public function logs()
     {
         return $this->hasMany(DeviceLog::class);
+    }
+
+    /**
+     * Admin mi kontrol et
+     */
+    public function isAdmin(): bool
+    {
+        return $this->role === 'admin';
     }
 }
