@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Device;
+use App\Models\Gateway;
 use App\Models\Room;
 use App\Models\Scene;
 use App\Models\Alert;
@@ -63,12 +64,18 @@ class DashboardController extends Controller
             ->limit(5)
             ->get();
 
+        // Sahiplenilmemiş online gateway'ler (banner için)
+        $unclaimedGatewayCount = Gateway::whereNull('dealer_id')
+            ->where('is_online', true)
+            ->count();
+
         return Inertia::render('Dashboard', [
             'stats' => $stats,
             'devices' => $devices,
             'rooms' => $rooms,
             'scenes' => $scenes,
             'alerts' => $alerts,
+            'unclaimed_gateway_count' => $unclaimedGatewayCount,
             'user' => [
                 'id' => $user->id,
                 'name' => $user->name,

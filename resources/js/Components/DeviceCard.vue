@@ -88,7 +88,7 @@ const props = defineProps({
 
 const emit = defineEmits(['command']);
 
-const isOn = ref(props.state?.power === 'on');
+const isOn = ref(props.state?.power === true || props.state?.power === 'on');
 const brightness = ref(props.state?.brightness || 75);
 const selectedColor = ref('#67E8F9');
 const customColor = ref('#67E8F9');
@@ -136,7 +136,7 @@ const togglePower = () => {
     emit('command', {
         deviceId: props.device.id,
         slug: isOn.value ? 'turn_on' : 'turn_off',
-        params: { device_index: props.device.id }
+        params: {}
     });
 };
 
@@ -144,19 +144,20 @@ const changeBrightness = () => {
     emit('command', {
         deviceId: props.device.id,
         slug: 'brightness',
-        params: { device_index: props.device.id, brightness: parseInt(brightness.value) }
+        params: { brightness: parseInt(brightness.value) }
     });
 };
 
 const changeColor = (color) => {
     selectedColor.value = color;
-    const r = parseInt(color.slice(1, 3), 16);
-    const g = parseInt(color.slice(3, 5), 16);
-    const b = parseInt(color.slice(5, 7), 16);
+    const hex = color.replace('#', '');
+    const r = parseInt(hex.slice(0, 2), 16);
+    const g = parseInt(hex.slice(2, 4), 16);
+    const b = parseInt(hex.slice(4, 6), 16);
     emit('command', {
         deviceId: props.device.id,
         slug: 'color',
-        params: { device_index: props.device.id, r, g, b }
+        params: { color: `rgb(${r}, ${g}, ${b})` }
     });
 };
 </script>

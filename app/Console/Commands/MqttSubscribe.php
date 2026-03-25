@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\Device;
+use App\Models\DeviceType;
 use App\Models\Gateway;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
@@ -74,15 +75,18 @@ class MqttSubscribe extends Command
     /**
      * Gateway ilk bağlantıda kendini tanıtır.
      * pigasoft/+/gateway
+     * dealer_id NULL bırakılır — bayi panelden "Bu gateway benim" diyerek sahiplenir.
      */
     protected function handleGateway(string $gatewayId, array $payload): void
     {
         $gateway = Gateway::updateOrCreate(
             ['gateway_id' => $gatewayId],
             ['is_online' => true, 'last_seen_at' => now()]
+            // dealer_id NULL kalır — claim sistemi ile bayi atanacak
         );
 
-        $this->line("[Gateway] Keşfedildi/güncellendi: {$gatewayId}");
+        $status = $gateway->dealer_id ? "bayi#{$gateway->dealer_id}" : 'SAHİPSİZ';
+        $this->line("[Gateway] Keşfedildi/güncellendi: {$gatewayId} ({$status})");
     }
 
     /**
@@ -161,6 +165,9 @@ class MqttSubscribe extends Command
      * Gateway'den cihaz listesi geldi.
      * pigasoft/+/devicelist
      * Payload: {"gateway_id": "gw_...", "devices": [{ieee_addr, device_index, type, name, ...}]}
+     *
+     * Mevcut cihazları günceller, DB'de olmayan yeni cihazları otomatik oluşturur.
+     * Yeni cihazlar is_active=false olarak eklenir — bayi isim ve tip atayınca aktifleştirir.
      */
     protected function handleDeviceList(string $gatewayId, array $payload): void
     {
@@ -172,6 +179,9 @@ class MqttSubscribe extends Command
 
         $gateway = Gateway::where('gateway_id', $gatewayId)->first();
 
+        $created = 0;
+        $updated = 0;
+
         foreach ($devices as $deviceData) {
             $ieeeAddr    = $deviceData['ieee_addr'] ?? null;
             $deviceIndex = $deviceData['device_index'] ?? null;
@@ -180,17 +190,51 @@ class MqttSubscribe extends Command
                 continue;
             }
 
-            // ieee_addr ile eşleşen cihazın index ve gateway bilgisini güncelle
-            $update = ['device_index' => $deviceIndex];
-            if ($gateway) {
-                $update['gateway_db_id'] = $gateway->id;
-            }
+            $existing = Device::where('ieee_addr', $ieeeAddr)->first();
 
-            Device::where('ieee_addr', $ieeeAddr)->update($update);
+            if ($existing) {
+                // Var olan cihazın index ve gateway bilgisini güncelle
+                $update = ['device_index' => $deviceIndex];
+                if ($gateway) {
+                    $update['gateway_db_id'] = $gateway->id;
+                }
+                $existing->update($update);
+                $updated++;
+            } elseif ($gateway && $gateway->dealer_id) {
+                // Yeni cihaz — sadece gateway'in bayisi varsa otomatik oluştur
+                Device::create([
+                    'dealer_id'      => $gateway->dealer_id,
+                    'gateway_db_id'  => $gateway->id,
+                    'ieee_addr'      => $ieeeAddr,
+                    'device_index'   => $deviceIndex,
+                    'name'           => $deviceData['name'] ?? "Cihaz {$deviceIndex}",
+                    'device_type_id' => $this->resolveDeviceType($deviceData['type'] ?? null),
+                    'is_active'      => false,  // Bayi yapılandırana kadar pasif
+                    'is_online'      => true,
+                    'last_seen_at'   => now(),
+                ]);
+                $created++;
+            }
         }
 
         $count = count($devices);
-        $this->line("[Cihaz Listesi] {$gatewayId}: {$count} cihaz");
+        $this->line("[Cihaz Listesi] {$gatewayId}: {$count} cihaz (yeni: {$created}, güncellendi: {$updated})");
+    }
+
+    /**
+     * Firmware'den gelen device type string'ini DB'deki DeviceType kaydıyla eşleştir.
+     */
+    private function resolveDeviceType(?string $type): ?int
+    {
+        if (!$type) {
+            return null;
+        }
+
+        $deviceType = DeviceType::where('slug', $type)
+            ->orWhere('name', $type)
+            ->first();
+
+        return $deviceType?->id;
     }
 
     /**

@@ -4,6 +4,7 @@ use App\Http\Controllers\Auth\AuthController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DeviceController;
+use App\Http\Controllers\GatewayController;
 use App\Http\Controllers\RoomController;
 use App\Http\Controllers\SceneController;
 use App\Services\MqttService;
@@ -45,6 +46,9 @@ Route::middleware('auth:dealer')->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index']);
 
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+
+    // Gateways
+    Route::get('/gateways', [GatewayController::class, 'index'])->name('gateways.index');
 
     //Devices
     Route::get('/devices', [DeviceController::class, 'index'])->name('devices.index');

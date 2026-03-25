@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Models\Command;
+use App\Models\Gateway;
 use App\Services\MqttService;
 use Illuminate\Http\Request;
 
@@ -50,7 +51,14 @@ class CommandController extends Controller
             ->where('is_active', true)
             ->firstOrFail();
 
-        $this->mqttService->sendGroupCommand($command, $request->params ?? []);
+        // Dealer'ın online gateway'ini bul (yoksa herhangi birini al)
+        $dealerId = $request->user()->dealer_id;
+        $gateway = Gateway::where('dealer_id', $dealerId)
+            ->orderByDesc('is_online')
+            ->orderByDesc('last_seen_at')
+            ->first();
+
+        $this->mqttService->sendGroupCommand($command, $request->params ?? [], $gateway?->gateway_id);
 
         return response()->json([
             'success' => true,

@@ -1,6 +1,25 @@
 <template>
     <AppLayout title="Dashboard" currentPage="Dashboard" :user="user">
 
+        <!-- Sahiplenilmemiş Gateway Bildirimi -->
+        <div v-if="unclaimedGatewayCount > 0"
+            class="mb-6 flex items-center gap-3 px-5 py-4 rounded-2xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+            <span class="material-symbols-outlined text-amber-500 filled-icon flex-shrink-0">router</span>
+            <div class="flex-1">
+                <p class="font-bold text-amber-800 dark:text-amber-300 text-sm">
+                    {{ unclaimedGatewayCount }} yeni gateway tespit edildi
+                </p>
+                <p class="text-xs text-amber-600 dark:text-amber-400 mt-0.5">
+                    Cihazlarınızı kullanmak için gateway'i sahiplenin.
+                </p>
+            </div>
+            <a href="/gateways"
+                class="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-semibold text-sm transition-all flex items-center gap-1.5 flex-shrink-0">
+                <span class="material-symbols-outlined text-base">arrow_forward</span>
+                Gateway Yönetimi
+            </a>
+        </div>
+
         <!-- İstatistikler -->
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <StatsCard label="Toplam Cihaz" :value="stats.total_devices" icon="memory" color="blue" />
@@ -169,7 +188,8 @@ const props = defineProps({
     rooms: { type: Array, default: () => [] },
     scenes: { type: Array, default: () => [] },
     alerts: { type: Array, default: () => [] },
-    user: { type: Object, default: null }
+    user: { type: Object, default: null },
+    unclaimedGatewayCount: { type: Number, default: 0 },
 });
 
 const commandFeedback = ref('');
@@ -185,29 +205,93 @@ const showFeedback = (message) => {
 };
 
 const handleCommand = async (deviceId, command) => {
-    console.log('Command:', deviceId, command);
-    showFeedback(`Komut gönderildi: ${command.type}`);
-    
-    // API'ye gönder
+    // DeviceCard { deviceId, slug, params } veya LedStripCard { type, value } formatını destekle
+    let slug = command.slug ?? null;
+    let params = { ...(command.params ?? {}) };
+
+    if (!slug) {
+        // LedStripCard / BulbCard gibi { type, value } formatı
+        const type = command.type;
+        if (type === 'power') {
+            slug = command.value ? 'turn_on' : 'turn_off';
+        } else if (type === 'brightness') {
+            slug = 'brightness';
+            params.brightness = command.value;
+        } else if (type === 'color') {
+            slug = 'color';
+            // hex → rgb() dönüşümü
+            const rawColor = command.value ?? '';
+            if (rawColor.startsWith('#')) {
+                const hex = rawColor.replace('#', '');
+                const r = parseInt(hex.slice(0, 2), 16);
+                const g = parseInt(hex.slice(2, 4), 16);
+                const b = parseInt(hex.slice(4, 6), 16);
+                params.color = `rgb(${r}, ${g}, ${b})`;
+            } else {
+                params.color = rawColor;
+            }
+        } else if (type === 'color_temperature') {
+            slug = 'color_temperature';
+            params.temperature = command.value;
+        } else if (type === 'position') {
+            slug = 'set_position';
+            params.position = command.value;
+        } else if (type === 'channel') {
+            slug = 'channel_toggle';
+            params.channel = command.channel;
+            params.value = command.value;
+        } else if (type === 'temperature') {
+            slug = 'set_temperature';
+            params.temperature = command.value;
+        } else if (type === 'mode') {
+            slug = 'set_mode';
+            params.mode = command.value;
+        } else if (type === 'lock') {
+            slug = command.value ? 'lock' : 'unlock';
+        } else {
+            slug = type;
+        }
+    }
+
+    if (!slug) return;
+
+    showFeedback(`Komut: ${slug}`);
+
     try {
-        await fetch(`/api/v1/devices/${deviceId}/command`, {
+        const response = await fetch(`/api/v1/devices/${deviceId}/command`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'Accept': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content ?? '',
             },
-            body: JSON.stringify({
-                command_type: command.type,
-                params: command,
-            }),
+            body: JSON.stringify({ command_slug: slug, params }),
         });
+        if (!response.ok) {
+            const err = await response.json().catch(() => ({}));
+            console.error('Command failed:', response.status, err);
+        }
     } catch (error) {
         console.error('Command error:', error);
     }
 };
 
 const handleGroupCommand = async (type) => {
+    const slug = type === 'all_on' ? 'group_all_on' : 'group_all_off';
     showFeedback(type === 'all_on' ? 'Tüm cihazlar açılıyor...' : 'Tüm cihazlar kapatılıyor...');
+    try {
+        await fetch('/api/v1/commands/group', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content ?? '',
+            },
+            body: JSON.stringify({ command_slug: slug }),
+        });
+    } catch (error) {
+        console.error('Group command error:', error);
+    }
 };
 
 const runScene = async (sceneId) => {

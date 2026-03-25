@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\V1\DeviceController;
 use App\Http\Controllers\Api\V1\CommandController;
 use App\Http\Controllers\Api\V1\DeviceTypeController;
 use App\Http\Controllers\Api\V1\DashboardController;
+use App\Http\Controllers\Api\V1\GatewayController;
 
 // V1 API Routes
 Route::prefix('v1')->group(function () {
@@ -13,8 +14,8 @@ Route::prefix('v1')->group(function () {
     // Auth (Public)
     Route::post('/auth/login', [AuthController::class, 'login']);
 
-    // Protected Routes
-    Route::middleware('auth:sanctum')->group(function () {
+    // Protected Routes — web session (dealer guard) ile çalışır
+    Route::middleware('auth:dealer,sanctum')->group(function () {
 
         // Auth
         Route::post('/auth/logout', [AuthController::class, 'logout']);
@@ -39,5 +40,11 @@ Route::prefix('v1')->group(function () {
 
         // Dashboard
         Route::get('/dashboard/stats', [DashboardController::class, 'index']);
+
+        // Gateways
+        Route::get('/gateways', [GatewayController::class, 'index']);
+        Route::post('/gateways/{gatewayId}/claim', [GatewayController::class, 'claim']);
+        Route::post('/gateways/{gatewayId}/scan', [GatewayController::class, 'scan']);
+        Route::get('/gateways/{gatewayId}/devices', [GatewayController::class, 'devices']);
     });
 });
