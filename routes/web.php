@@ -5,13 +5,10 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DeviceController;
 use App\Http\Controllers\RoomController;
+use App\Http\Controllers\SceneController;
 use App\Services\MqttService;
 use App\Models\Device;
 use Inertia\Inertia;
-
-Route::get('/', function () {
-    return view('welcome');
-});
 
 Route::get('/test/mqtt/{command}', function ($command, MqttService $mqttService) {
     $device = Device::first();
@@ -60,4 +57,11 @@ Route::middleware('auth:dealer')->group(function () {
     Route::post('/rooms', [RoomController::class, 'store'])->name('rooms.store');
     Route::put('/rooms/{room}', [RoomController::class, 'update'])->name('rooms.update');
     Route::delete('/rooms/{room}', [RoomController::class, 'destroy'])->name('rooms.destroy');
+
+    // Scenes
+    Route::get('/scenes', [SceneController::class, 'index'])->name('scenes.index');
+    Route::post('/scenes', [SceneController::class, 'store'])->name('scenes.store');
+    Route::put('/scenes/{scene}', [SceneController::class, 'update'])->name('scenes.update');
+    Route::delete('/scenes/{scene}', [SceneController::class, 'destroy'])->name('scenes.destroy');
+    Route::post('/scenes/{scene}/run', [SceneController::class, 'run'])->name('scenes.run');
 });
