@@ -105,22 +105,6 @@
                         </template>
                     </button>
 
-                    <!-- Divider -->
-                    <div class="relative flex items-center py-4">
-                        <div class="flex-grow border-t border-slate-200 dark:border-slate-800"></div>
-                        <span class="mx-4 flex-shrink text-sm text-slate-400">veya</span>
-                        <div class="flex-grow border-t border-slate-200 dark:border-slate-800"></div>
-                    </div>
-
-                    <!-- Demo Button -->
-                    <button 
-                        type="button"
-                        @click="handleDemoLogin"
-                        :disabled="isLoading"
-                        class="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3.5 text-base font-semibold text-slate-700 transition hover:bg-slate-50 active:scale-[0.98] dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 disabled:opacity-70"
-                    >
-                        Demo hesabıyla giriş yap
-                    </button>
                 </form>
 
             </div>
@@ -263,9 +247,4 @@ const handleLogin = async () => {
     }
 };
 
-const handleDemoLogin = () => {
-    form.email = 'admin@garagelink.com';
-    form.password = 'password';
-    handleLogin();
-};
 </script>

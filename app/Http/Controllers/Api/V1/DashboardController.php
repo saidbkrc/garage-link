@@ -1,22 +1,20 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Api\V1;
 
+use App\Http\Controllers\Controller;
 use App\Models\Device;
-use App\Models\DeviceType;
 use App\Models\Room;
 use App\Models\Scene;
 use App\Models\Alert;
-use App\Models\EnergyUsage;
 use Illuminate\Http\Request;
-use Inertia\Inertia;
 
 class DashboardController extends Controller
 {
     public function index(Request $request)
     {
-        // Şimdilik sabit dealer_id (sonra auth'dan alınacak)
-        $dealerId = 1;
+        $user = $request->user();
+        $dealerId = $user->dealer_id;
 
         // İstatistikler
         $stats = [
@@ -72,22 +70,20 @@ class DashboardController extends Controller
             ->limit(5)
             ->get();
 
-        // Kullanıcı bilgisi (şimdilik mock)
-        $user = [
-            'id' => 1,
-            'name' => 'Admin User',
-            'email' => 'admin@garagelink.com',
-            'dealer_name' => 'Demo Bayi',
-            'token' => 'demo-token', // Gerçek uygulamada Sanctum token
-        ];
-
-        return Inertia::render('Dashboard', [
+        return response()->json([
             'stats' => $stats,
             'devices' => $devices,
             'rooms' => $rooms,
             'scenes' => $scenes,
             'alerts' => $alerts,
-            'user' => $user,
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'role' => $user->role,
+                'dealer_id' => $user->dealer_id,
+                'dealer_name' => $user->dealer->name,
+            ],
         ]);
     }
 }
