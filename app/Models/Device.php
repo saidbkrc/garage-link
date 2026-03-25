@@ -11,10 +11,13 @@ class Device extends Model
 
     protected $fillable = [
         'dealer_id',
+        'gateway_db_id',
         'device_type_id',
         'room_id',
         'name',
         'mac_address',
+        'ieee_addr',
+        'device_index',
         'mqtt_topic',
         'is_online',
         'last_seen_at',
@@ -44,6 +47,11 @@ class Device extends Model
     public function dealer()
     {
         return $this->belongsTo(Dealer::class);
+    }
+
+    public function gateway()
+    {
+        return $this->belongsTo(Gateway::class, 'gateway_db_id');
     }
 
     public function deviceType()

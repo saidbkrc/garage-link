@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\Device;
 use App\Models\DeviceType;
+use App\Models\Gateway;
 use App\Models\Room;
 use Illuminate\Database\Seeder;
 
@@ -12,6 +13,17 @@ class DeviceSeeder extends Seeder
     public function run(): void
     {
         $dealerId = 1;
+
+        // Demo gateway oluştur (gerçekte fiziksel gateway'den otomatik keşfedilir)
+        $gateway = Gateway::updateOrCreate(
+            ['gateway_id' => 'gw_DEMO0000000001'],
+            [
+                'dealer_id'    => $dealerId,
+                'name'         => 'Demo Gateway',
+                'is_online'    => true,
+                'last_seen_at' => now(),
+            ]
+        );
 
         // Odaları al
         $salon = Room::where('dealer_id', $dealerId)->where('name', 'Salon')->first();
@@ -42,14 +54,18 @@ class DeviceSeeder extends Seeder
                 'device_type_id' => $ledStrip?->id,
                 'room_id' => $salon?->id,
                 'mac_address' => 'AA:BB:CC:DD:EE:01',
+                'ieee_addr' => 'AABBCCDDEEFF0001',
+                'device_index' => 0,
                 'is_online' => true,
-                'current_state' => ['power' => true, 'brightness' => 85, 'color' => '#A855F7'],
+                'current_state' => ['power' => true, 'brightness' => 85, 'color' => 'rgb(168, 85, 247)'],
             ],
             [
                 'name' => 'Salon Klima',
                 'device_type_id' => $climateAc?->id,
                 'room_id' => $salon?->id,
                 'mac_address' => 'AA:BB:CC:DD:EE:02',
+                'ieee_addr' => 'AABBCCDDEEFF0002',
+                'device_index' => 1,
                 'is_online' => true,
                 'current_state' => ['power' => true, 'current_temp' => 26, 'target_temp' => 22, 'mode' => 'cool'],
             ],
@@ -58,6 +74,8 @@ class DeviceSeeder extends Seeder
                 'device_type_id' => $curtain?->id,
                 'room_id' => $salon?->id,
                 'mac_address' => 'AA:BB:CC:DD:EE:03',
+                'ieee_addr' => 'AABBCCDDEEFF0003',
+                'device_index' => 2,
                 'is_online' => true,
                 'current_state' => ['position' => 75],
             ],
@@ -66,6 +84,8 @@ class DeviceSeeder extends Seeder
                 'device_type_id' => $plug?->id,
                 'room_id' => $salon?->id,
                 'mac_address' => 'AA:BB:CC:DD:EE:04',
+                'ieee_addr' => 'AABBCCDDEEFF0004',
+                'device_index' => 3,
                 'is_online' => true,
                 'current_state' => ['power' => true],
                 'energy_today' => 1.2,
@@ -76,6 +96,8 @@ class DeviceSeeder extends Seeder
                 'device_type_id' => $sensorTemp?->id,
                 'room_id' => $salon?->id,
                 'mac_address' => 'AA:BB:CC:DD:EE:05',
+                'ieee_addr' => 'AABBCCDDEEFF0005',
+                'device_index' => 4,
                 'is_online' => true,
                 'current_state' => ['temperature' => 24.5, 'humidity' => 45],
             ],
@@ -86,6 +108,8 @@ class DeviceSeeder extends Seeder
                 'device_type_id' => $bulb?->id,
                 'room_id' => $yatakOdasi?->id,
                 'mac_address' => 'AA:BB:CC:DD:EE:06',
+                'ieee_addr' => 'AABBCCDDEEFF0006',
+                'device_index' => 5,
                 'is_online' => true,
                 'current_state' => ['power' => true, 'brightness' => 70, 'temperature' => 25],
             ],
@@ -94,6 +118,8 @@ class DeviceSeeder extends Seeder
                 'device_type_id' => $switch?->id,
                 'room_id' => $yatakOdasi?->id,
                 'mac_address' => 'AA:BB:CC:DD:EE:07',
+                'ieee_addr' => 'AABBCCDDEEFF0007',
+                'device_index' => 6,
                 'is_online' => true,
                 'current_state' => ['channels' => [true, false, true, false]],
                 'config' => ['channel_names' => ['Ana Işık', 'Abajur', 'Spot', 'Gece']],
@@ -103,6 +129,8 @@ class DeviceSeeder extends Seeder
                 'device_type_id' => $climateAc?->id,
                 'room_id' => $yatakOdasi?->id,
                 'mac_address' => 'AA:BB:CC:DD:EE:08',
+                'ieee_addr' => 'AABBCCDDEEFF0008',
+                'device_index' => 7,
                 'is_online' => false,
                 'current_state' => ['power' => false, 'current_temp' => 24, 'target_temp' => 23, 'mode' => 'auto'],
             ],
@@ -111,6 +139,8 @@ class DeviceSeeder extends Seeder
                 'device_type_id' => $curtain?->id,
                 'room_id' => $yatakOdasi?->id,
                 'mac_address' => 'AA:BB:CC:DD:EE:09',
+                'ieee_addr' => 'AABBCCDDEEFF0009',
+                'device_index' => 8,
                 'is_online' => true,
                 'current_state' => ['position' => 0],
             ],
@@ -121,8 +151,10 @@ class DeviceSeeder extends Seeder
                 'device_type_id' => $ledStrip?->id,
                 'room_id' => $mutfak?->id,
                 'mac_address' => 'AA:BB:CC:DD:EE:10',
+                'ieee_addr' => 'AABBCCDDEEFF0010',
+                'device_index' => 9,
                 'is_online' => true,
-                'current_state' => ['power' => true, 'brightness' => 100, 'color' => '#67E8F9'],
+                'current_state' => ['power' => true, 'brightness' => 100, 'color' => 'rgb(103, 232, 249)'],
             ],
 
             // Ofis
@@ -131,6 +163,8 @@ class DeviceSeeder extends Seeder
                 'device_type_id' => $bulb?->id,
                 'room_id' => $ofis?->id,
                 'mac_address' => 'AA:BB:CC:DD:EE:11',
+                'ieee_addr' => 'AABBCCDDEEFF0011',
+                'device_index' => 10,
                 'is_online' => true,
                 'current_state' => ['power' => false, 'brightness' => 50, 'temperature' => 80],
             ],
@@ -139,6 +173,8 @@ class DeviceSeeder extends Seeder
                 'device_type_id' => $plug?->id,
                 'room_id' => $ofis?->id,
                 'mac_address' => 'AA:BB:CC:DD:EE:12',
+                'ieee_addr' => 'AABBCCDDEEFF0012',
+                'device_index' => 11,
                 'is_online' => true,
                 'current_state' => ['power' => true],
                 'energy_today' => 2.8,
@@ -151,6 +187,8 @@ class DeviceSeeder extends Seeder
                 'device_type_id' => $sensorTemp?->id,
                 'room_id' => $banyo?->id,
                 'mac_address' => 'AA:BB:CC:DD:EE:13',
+                'ieee_addr' => 'AABBCCDDEEFF0013',
+                'device_index' => 12,
                 'is_online' => true,
                 'current_state' => ['temperature' => 22, 'humidity' => 65],
             ],
@@ -161,6 +199,8 @@ class DeviceSeeder extends Seeder
                 'device_type_id' => $sensorMotion?->id,
                 'room_id' => $koridor?->id,
                 'mac_address' => 'AA:BB:CC:DD:EE:14',
+                'ieee_addr' => 'AABBCCDDEEFF0014',
+                'device_index' => 13,
                 'is_online' => true,
                 'current_state' => ['motion' => false, 'last_motion' => '3 dakika önce'],
             ],
@@ -171,6 +211,8 @@ class DeviceSeeder extends Seeder
                 'device_type_id' => $lock?->id,
                 'room_id' => null,
                 'mac_address' => 'AA:BB:CC:DD:EE:15',
+                'ieee_addr' => 'AABBCCDDEEFF0015',
+                'device_index' => 14,
                 'is_online' => true,
                 'current_state' => ['locked' => true, 'last_activity' => '14:32'],
             ],
@@ -179,6 +221,8 @@ class DeviceSeeder extends Seeder
                 'device_type_id' => $garage?->id,
                 'room_id' => $garaj?->id,
                 'mac_address' => 'AA:BB:CC:DD:EE:16',
+                'ieee_addr' => 'AABBCCDDEEFF0016',
+                'device_index' => 15,
                 'is_online' => true,
                 'current_state' => ['position' => 0, 'last_activity' => '09:15'],
             ],
@@ -187,6 +231,8 @@ class DeviceSeeder extends Seeder
                 'device_type_id' => $alarm?->id,
                 'room_id' => null,
                 'mac_address' => 'AA:BB:CC:DD:EE:17',
+                'ieee_addr' => 'AABBCCDDEEFF0017',
+                'device_index' => 16,
                 'is_online' => true,
                 'current_state' => ['armed' => false, 'last_activity' => '08:00'],
             ],
@@ -195,7 +241,11 @@ class DeviceSeeder extends Seeder
         foreach ($devices as $device) {
             Device::updateOrCreate(
                 ['dealer_id' => $dealerId, 'mac_address' => $device['mac_address']],
-                array_merge($device, ['dealer_id' => $dealerId, 'is_active' => true])
+                array_merge($device, [
+                    'dealer_id'    => $dealerId,
+                    'gateway_db_id' => $gateway->id,
+                    'is_active'    => true,
+                ])
             );
         }
     }

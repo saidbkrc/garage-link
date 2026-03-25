@@ -12,14 +12,26 @@ class MqttService
 {
     public function sendCommand(Device $device, Command $command, array $params = [], ?int $userId = null): DeviceLog
     {
-        $params['device_index'] = $params['device_index'] ?? $device->id;
+        // Cihazın ieee_addr'ini otomatik ekle (firmware için en güvenilir tanımlayıcı)
+        if ($device->ieee_addr && !isset($params['ieee_addr'])) {
+            $params['ieee_addr'] = $device->ieee_addr;
+        }
+
+        // Fallback: ieee_addr yoksa device_index kullan
+        if (!isset($params['ieee_addr']) && !isset($params['device_index'])) {
+            $params['device_index'] = $device->device_index ?? $device->id;
+        }
+
+        // Gateway ID'yi topic'e ekle: pigasoft/{gateway_id}/commands
+        $gatewayId = $device->gateway?->gateway_id;
+        $topic = $gatewayId
+            ? str_replace('{gateway_id}', $gatewayId, $command->mqtt_topic)
+            : $command->mqtt_topic;
 
         $payload = $command->buildPayload($params);
-
-        $topic = $command->mqtt_topic;
         $message = json_encode($payload);
 
-        MQTT::connection()->publish($topic, $message);
+        MQTT::connection()->publish($topic, $message, 1);
 
         $this->updateDeviceState($device, $command, $params);
 
@@ -41,12 +53,16 @@ class MqttService
         return $this->sendCommand($device, $command, $params, $userId);
     }
 
-    public function sendGroupCommand(Command $command, array $params = []): void
+    public function sendGroupCommand(Command $command, array $params = [], ?string $gatewayId = null): void
     {
+        $topic = $gatewayId
+            ? str_replace('{gateway_id}', $gatewayId, $command->mqtt_topic)
+            : $command->mqtt_topic;
+
         $payload = $command->buildPayload($params);
         $message = json_encode($payload);
 
-        MQTT::connection()->publish($command->mqtt_topic, $message);
+        MQTT::connection()->publish($topic, $message, 1);
     }
 
     protected function updateDeviceState(Device $device, Command $command, array $params): void
@@ -54,21 +70,30 @@ class MqttService
         $state = Cache::get("device:{$device->id}:state", []);
 
         if ($command->slug === 'turn_on') {
-            $state['power'] = 'on';
+            $state['power'] = true;
         } elseif ($command->slug === 'turn_off') {
-            $state['power'] = 'off';
+            $state['power'] = false;
         } elseif ($command->slug === 'toggle') {
-            $state['power'] = ($state['power'] ?? 'off') === 'on' ? 'off' : 'on';
+            $state['power'] = !($state['power'] ?? false);
         } elseif ($command->slug === 'brightness' && isset($params['brightness'])) {
-            $state['brightness'] = $params['brightness'];
-        } elseif ($command->slug === 'color' && isset($params['r'])) {
-            $state['color'] = ['r' => $params['r'], 'g' => $params['g'], 'b' => $params['b']];
+            $state['brightness'] = (int) $params['brightness'];
+            $state['power'] = true;
+        } elseif (in_array($command->slug, ['color', 'color_brightness']) && isset($params['color'])) {
+            // firmware "rgb(R, G, B)" string formatı
+            $state['color'] = $params['color'];
+            $state['power'] = true;
+            if (isset($params['brightness'])) {
+                $state['brightness'] = (int) $params['brightness'];
+            }
         }
 
         $state['last_command'] = $command->slug;
         $state['last_updated'] = now()->toDateTimeString();
 
         Cache::put("device:{$device->id}:state", $state, 86400);
+
+        // Veritabanını da güncelle
+        $device->updateState($state);
     }
 
     public function getDeviceState(Device $device): array
