@@ -14,10 +14,14 @@ class GatewayController extends Controller
         $user = Auth::guard('dealer')->user();
         $dealerId = $user->dealer_id;
 
-        // Bu dealer'ın gateway'leri (cihaz sayısı ile)
+        // Son 10 dakikada mesaj atmış gateway'ler "gerçekten online" sayılır
+        $onlineThreshold = now()->subMinutes(10);
+
+        // Bu dealer'ın ONLINE gateway'leri (cihaz sayısı ile)
         $myGateways = Gateway::where('dealer_id', $dealerId)
+            ->where('is_online', true)
+            ->where('last_seen_at', '>=', $onlineThreshold)
             ->withCount('devices')
-            ->orderByDesc('is_online')
             ->orderByDesc('last_seen_at')
             ->get()
             ->map(fn($g) => [

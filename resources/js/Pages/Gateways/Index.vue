@@ -48,14 +48,16 @@
             </div>
         </div>
 
-        <!-- Boş durum (unclaimed) -->
-        <div v-else-if="myGateways.length === 0" class="mb-8 p-8 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 text-center">
+        <!-- Hiç gateway yok -->
+        <div v-if="unclaimedGateways.length === 0 && myGateways.length === 0"
+            class="mb-8 p-10 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 text-center">
             <span class="material-symbols-outlined text-5xl text-slate-400 mb-3 block">router</span>
             <p class="font-bold text-slate-600 dark:text-slate-400">Gateway bulunamadı</p>
             <p class="text-sm text-slate-500 mt-1">Gateway'i prize takın, birkaç saniye içinde burada görünecek.</p>
+            <p class="text-xs text-slate-400 mt-3">MQTT subscriber çalışıyor olmalı: <code class="bg-slate-100 dark:bg-slate-800 px-1 rounded">php artisan mqtt:subscribe</code></p>
         </div>
 
-        <!-- Benim Gateway'lerim -->
+        <!-- Bağlı (Online) Gateway'lerim -->
         <div v-if="myGateways.length > 0">
             <h2 class="text-lg font-bold text-slate-900 dark:text-white mb-4">Bağlı Gateway'lerim</h2>
             <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
@@ -66,12 +68,8 @@
                     <div class="flex items-start justify-between mb-4">
                         <div>
                             <div class="flex items-center gap-2 mb-1">
-                                <span class="size-2 rounded-full"
-                                    :class="gw.is_online ? 'bg-green-500 animate-pulse' : 'bg-slate-400'"></span>
-                                <span class="text-xs font-bold"
-                                    :class="gw.is_online ? 'text-green-600 dark:text-green-400' : 'text-slate-500'">
-                                    {{ gw.is_online ? 'ONLINE' : 'OFFLINE' }}
-                                </span>
+                                <span class="size-2 rounded-full bg-green-500 animate-pulse"></span>
+                                <span class="text-xs font-bold text-green-600 dark:text-green-400">ONLINE</span>
                             </div>
                             <h3 class="font-bold text-slate-900 dark:text-white">
                                 {{ gw.name || 'Gateway' }}
@@ -95,25 +93,17 @@
                         </div>
                     </div>
 
-                    <!-- Aksiyonlar -->
-                    <div class="flex gap-2 mt-3">
-                        <button
-                            @click="scanGateway(gw.gateway_id)"
-                            :disabled="scanning === gw.gateway_id"
-                            class="flex-1 py-2 rounded-xl border border-primary text-primary hover:bg-primary hover:text-white font-semibold text-sm transition-all flex items-center justify-center gap-1.5 disabled:opacity-60">
-                            <span class="material-symbols-outlined text-base"
-                                :class="scanning === gw.gateway_id ? 'animate-spin' : ''">
-                                {{ scanning === gw.gateway_id ? 'refresh' : 'radar' }}
-                            </span>
-                            {{ scanning === gw.gateway_id ? 'Taranıyor...' : 'Cihaz Tara' }}
-                        </button>
-                        <button
-                            @click="viewDevices(gw.gateway_id)"
-                            class="flex-1 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-semibold text-sm transition-all flex items-center justify-center gap-1.5">
-                            <span class="material-symbols-outlined text-base">devices</span>
-                            Cihazlar
-                        </button>
-                    </div>
+                    <!-- Cihaz Tara Butonu -->
+                    <button
+                        @click="scanAndViewDevices(gw)"
+                        :disabled="scanning === gw.gateway_id"
+                        class="mt-3 w-full py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-white font-semibold text-sm transition-all flex items-center justify-center gap-2 shadow-sm shadow-primary/20 disabled:opacity-60">
+                        <span class="material-symbols-outlined text-base"
+                            :class="scanning === gw.gateway_id ? 'animate-spin' : ''">
+                            {{ scanning === gw.gateway_id ? 'refresh' : 'radar' }}
+                        </span>
+                        {{ scanning === gw.gateway_id ? 'Taranıyor...' : 'Cihaz Tara' }}
+                    </button>
                 </div>
             </div>
         </div>
@@ -124,13 +114,30 @@
                 <!-- Modal Başlık -->
                 <div class="flex items-center justify-between p-6 border-b border-slate-200 dark:border-slate-800">
                     <div>
-                        <h3 class="font-bold text-lg text-slate-900 dark:text-white">Gateway Cihazları</h3>
+                        <h3 class="font-bold text-lg text-slate-900 dark:text-white">
+                            {{ selectedGatewayName || 'Gateway' }} — Cihazlar
+                        </h3>
                         <p class="text-xs text-slate-500 font-mono mt-0.5">{{ selectedGatewayId }}</p>
                     </div>
-                    <button @click="showDevicesModal = false"
-                        class="size-9 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 flex items-center justify-center transition-all">
-                        <span class="material-symbols-outlined text-slate-500">close</span>
-                    </button>
+                    <div class="flex items-center gap-2">
+                        <button @click="refreshDevices"
+                            :disabled="loadingDevices"
+                            class="size-9 rounded-xl bg-primary/10 text-primary hover:bg-primary/20 flex items-center justify-center transition-all disabled:opacity-50"
+                            title="Yenile">
+                            <span class="material-symbols-outlined text-base"
+                                :class="loadingDevices ? 'animate-spin' : ''">refresh</span>
+                        </button>
+                        <button @click="showDevicesModal = false"
+                            class="size-9 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 flex items-center justify-center transition-all">
+                            <span class="material-symbols-outlined text-slate-500">close</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Tarama notu -->
+                <div v-if="scanSent" class="mx-6 mt-4 px-4 py-2.5 rounded-xl bg-primary/10 border border-primary/20 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-primary text-base animate-pulse">radar</span>
+                    <p class="text-xs text-primary font-medium">Tarama komutu gönderildi. Yeni cihazlar birkaç saniye içinde görünecek — yenilemek için <button @click="refreshDevices" class="underline font-bold">buraya tıklayın</button>.</p>
                 </div>
 
                 <!-- Cihaz Listesi -->
@@ -140,13 +147,16 @@
                     </div>
                     <div v-else-if="gatewayDevices.length === 0" class="text-center py-12">
                         <span class="material-symbols-outlined text-5xl text-slate-400 block mb-3">devices_off</span>
-                        <p class="text-slate-500">Henüz cihaz bulunamadı.</p>
-                        <p class="text-xs text-slate-400 mt-1">Cihaz eklemek için gateway'i tarayın.</p>
+                        <p class="text-slate-500 font-medium">Cihaz bulunamadı</p>
+                        <p class="text-xs text-slate-400 mt-1">Tarama tamamlanınca cihazlar burada görünecek.</p>
                     </div>
                     <div v-else class="space-y-3">
+                        <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">
+                            {{ gatewayDevices.length }} cihaz bulundu
+                        </p>
                         <div v-for="device in gatewayDevices" :key="device.id"
                             class="flex items-center gap-4 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
-                            <div class="size-10 rounded-xl flex items-center justify-center"
+                            <div class="size-10 rounded-xl flex items-center justify-center flex-shrink-0"
                                 :class="device.is_active ? 'bg-primary/10 text-primary' : 'bg-slate-200 dark:bg-slate-700 text-slate-500'">
                                 <span class="material-symbols-outlined text-xl">lightbulb</span>
                             </div>
@@ -154,7 +164,7 @@
                                 <p class="font-semibold text-sm text-slate-900 dark:text-white truncate">{{ device.name }}</p>
                                 <p class="text-xs text-slate-500 font-mono">{{ device.ieee_addr }}</p>
                             </div>
-                            <div class="text-right">
+                            <div class="text-right flex-shrink-0">
                                 <span class="text-xs font-bold px-2 py-0.5 rounded-full"
                                     :class="device.is_active
                                         ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
@@ -199,8 +209,10 @@ const scanning = ref(null);
 const toast = ref(null);
 const showDevicesModal = ref(false);
 const selectedGatewayId = ref('');
+const selectedGatewayName = ref('');
 const gatewayDevices = ref([]);
 const loadingDevices = ref(false);
+const scanSent = ref(false);
 
 const showToast = (message, type = 'success') => {
     toast.value = { message, type };
@@ -223,7 +235,6 @@ const claimGateway = async (gatewayId) => {
         const data = await response.json();
         if (data.success) {
             showToast('Gateway başarıyla sahiplenildi! Cihazlar taranıyor...');
-            // Sayfayı yenile
             setTimeout(() => window.location.reload(), 1500);
         } else {
             showToast('Bir hata oluştu', 'error');
@@ -236,31 +247,39 @@ const claimGateway = async (gatewayId) => {
     }
 };
 
-const scanGateway = async (gatewayId) => {
-    scanning.value = gatewayId;
+/**
+ * Cihaz Tara: MQTT tarama komutu gönderir + cihaz listesi modalını açar.
+ */
+const scanAndViewDevices = async (gw) => {
+    scanning.value = gw.gateway_id;
+    selectedGatewayId.value = gw.gateway_id;
+    selectedGatewayName.value = gw.name || 'Gateway';
+    scanSent.value = false;
+    showDevicesModal.value = true;
+
+    // Önce mevcut cihazları yükle
+    await loadDevices(gw.gateway_id);
+
+    // Tarama komutunu gönder (async, cevap beklemez)
     try {
-        const response = await fetch(`/api/v1/gateways/${gatewayId}/scan`, {
+        const response = await fetch(`/api/v1/gateways/${gw.gateway_id}/scan`, {
             method: 'POST',
             headers: getHeaders(),
         });
         const data = await response.json();
         if (data.success) {
-            showToast('Cihaz taraması başlatıldı. Birkaç saniye bekleyin...');
+            scanSent.value = true;
         }
     } catch (error) {
         console.error('Scan error:', error);
-        showToast('Tarama başlatılamadı', 'error');
     } finally {
-        setTimeout(() => scanning.value = null, 2000);
+        scanning.value = null;
     }
 };
 
-const viewDevices = async (gatewayId) => {
-    selectedGatewayId.value = gatewayId;
-    showDevicesModal.value = true;
+const loadDevices = async (gatewayId) => {
     loadingDevices.value = true;
     gatewayDevices.value = [];
-
     try {
         const response = await fetch(`/api/v1/gateways/${gatewayId}/devices`, {
             headers: getHeaders(),
@@ -274,6 +293,10 @@ const viewDevices = async (gatewayId) => {
     } finally {
         loadingDevices.value = false;
     }
+};
+
+const refreshDevices = () => {
+    loadDevices(selectedGatewayId.value);
 };
 
 const formatTime = (timestamp) => {
