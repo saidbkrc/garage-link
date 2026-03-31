@@ -18,19 +18,25 @@ class DashboardController extends Controller
         $user = Auth::guard('dealer')->user();
         $dealerId = $user->dealer_id;
 
-        // İstatistikler
+        // İstatistikler (sadece aktif cihazlar)
         $stats = [
-            'total_devices' => Device::where('dealer_id', $dealerId)->count(),
-            'online_devices' => Device::where('dealer_id', $dealerId)->where('is_online', true)->count(),
+            'total_devices' => Device::where('dealer_id', $dealerId)->where('is_active', true)->count(),
+            'online_devices' => Device::where('dealer_id', $dealerId)->where('is_active', true)->where('is_online', true)->count(),
             'total_energy_today' => Device::where('dealer_id', $dealerId)->sum('energy_today'),
             'active_alerts' => Alert::where('dealer_id', $dealerId)->where('is_read', false)->count(),
         ];
 
-        // Cihazlar
-        $devices = Device::with(['deviceType', 'room'])
+        // Dashboard'da gösterilecek cihazlar (show_in_dashboard=true); eğer yoksa ilk 8 aktif cihaz
+        $dashboardQuery = Device::with(['deviceType', 'room'])
             ->where('dealer_id', $dealerId)
-            ->where('is_active', true)
-            ->get()
+            ->where('is_active', true);
+
+        $hasPinned = (clone $dashboardQuery)->where('show_in_dashboard', true)->exists();
+
+        $devices = ($hasPinned
+            ? (clone $dashboardQuery)->where('show_in_dashboard', true)
+            : (clone $dashboardQuery)->limit(8)
+        )->get()
             ->map(function ($device) {
                 return [
                     'id' => $device->id,

@@ -10,6 +10,8 @@ class Gateway extends Model
         'dealer_id',
         'gateway_id',
         'name',
+        'ip_address',
+        'firmware_version',
         'is_online',
         'last_seen_at',
     ];

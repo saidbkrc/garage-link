@@ -96,7 +96,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 
 const props = defineProps({
     name: { type: String, default: 'Salon Perde' },
@@ -107,6 +107,8 @@ const props = defineProps({
 const emit = defineEmits(['command']);
 
 const position = ref(props.initialPosition);
+
+watch(() => props.initialPosition, (v) => { position.value = v; });
 const isMoving = ref(false);
 
 const statusText = computed(() => {

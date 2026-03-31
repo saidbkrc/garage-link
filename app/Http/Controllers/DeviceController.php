@@ -21,23 +21,27 @@ class DeviceController extends Controller
 
         $devices = Device::with(['deviceType', 'room'])
             ->where('dealer_id', $dealerId)
+            ->where('is_active', true)
             ->orderBy('name')
             ->get()
             ->map(function ($device) {
                 return [
-                    'id' => $device->id,
-                    'name' => $device->name,
-                    'type' => $device->deviceType?->slug,
-                    'category' => $device->deviceType?->category,
-                    'icon' => $device->deviceType?->icon,
-                    'room' => $device->room?->name,
-                    'room_id' => $device->room_id,
-                    'is_online' => $device->is_online,
-                    'is_active' => $device->is_active,
-                    'state' => $device->current_state ?? [],
-                    'config' => $device->config ?? [],
-                    'mac_address' => $device->mac_address,
-                    'last_seen_at' => $device->last_seen_at,
+                    'id'                 => $device->id,
+                    'name'               => $device->name,
+                    'type'               => $device->deviceType?->slug,
+                    'category'           => $device->deviceType?->category,
+                    'icon'               => $device->deviceType?->icon,
+                    'device_type_id'     => $device->device_type_id,
+                    'room'               => $device->room?->name,
+                    'room_id'            => $device->room_id,
+                    'is_online'          => $device->is_online,
+                    'is_active'          => $device->is_active,
+                    'show_in_dashboard'  => $device->show_in_dashboard,
+                    'state'              => $device->current_state ?? [],
+                    'config'             => $device->config ?? [],
+                    'mac_address'        => $device->mac_address,
+                    'ieee_addr'          => $device->ieee_addr,
+                    'last_seen_at'       => $device->last_seen_at,
                 ];
             });
 
@@ -51,10 +55,11 @@ class DeviceController extends Controller
             ->get();
 
         return Inertia::render('Devices/Index', [
-            'devices' => $devices,
-            'rooms' => $rooms,
+            'devices'     => $devices,
+            'rooms'       => $rooms,
             'deviceTypes' => $deviceTypes,
-            'user' => [
+            'initialRoom' => request()->query('room', ''),
+            'user'        => [
                 'id' => $user->id,
                 'name' => $user->name,
                 'email' => $user->email,
@@ -110,14 +115,31 @@ class DeviceController extends Controller
             abort(403);
         }
 
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'room_id' => 'nullable|exists:rooms,id',
-            // 'mqtt_topic' => 'nullable|string|max:255',
-            'is_active' => 'boolean',
+        $request->validate([
+            'name'               => 'sometimes|string|max:255',
+            'room_id'            => 'nullable|exists:rooms,id',
+            'device_type_id'     => 'nullable|exists:device_types,id',
+            'is_active'          => 'sometimes|boolean',
+            'show_in_dashboard'  => 'sometimes|boolean',
+            'channel_count'      => 'nullable|integer|min:1|max:64',
         ]);
 
-        $device->update($validated);
+        $updateData = $request->only([
+            'name', 'room_id', 'device_type_id', 'is_active', 'show_in_dashboard',
+        ]);
+
+        // Kanal sayısı gönderildiyse config'e yaz
+        if ($request->filled('channel_count')) {
+            $config = $device->config ?? [];
+            $config['channel_count'] = (int) $request->channel_count;
+            // onoff_endpoints yoksa sıralı üret
+            if (empty($config['onoff_endpoints'])) {
+                $config['onoff_endpoints'] = range(1, (int) $request->channel_count);
+            }
+            $updateData['config'] = $config;
+        }
+
+        $device->update($updateData);
 
         return redirect()->back()->with('success', 'Cihaz güncellendi');
     }

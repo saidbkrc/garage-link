@@ -36,6 +36,13 @@
                     <p class="text-slate-500 dark:text-slate-400 mt-1">Sık kullanılan cihazlarınızı hızlıca yönetin.</p>
                 </div>
                 <div class="flex items-center gap-3">
+                    <!-- Cihaz durumu senkronizasyon butonu -->
+                    <button @click="syncAllStates" :disabled="syncing"
+                        class="flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:border-primary hover:text-primary font-semibold text-sm transition-all disabled:opacity-50"
+                        title="Tüm cihazların gerçek durumunu sorgula">
+                        <span class="material-symbols-outlined text-base" :class="syncing ? 'animate-spin' : ''">sync</span>
+                        {{ syncing ? 'Sorgulanıyor...' : 'Senkronize Et' }}
+                    </button>
                     <button @click="handleGroupCommand('all_off')"
                         class="px-5 py-2.5 rounded-xl bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold text-sm transition-all">
                         Tümünü Kapat
@@ -53,31 +60,31 @@
                     <LedStripCard v-if="device.type === 'led_strip'"
                         :name="device.name"
                         :location="device.room || 'Bilinmiyor'"
-                        :initialState="device.state?.power || false"
-                        :initialBrightness="device.state?.brightness || 100"
-                        :initialColor="device.state?.color || '#FFFFFF'"
+                        :initialState="deviceState(device)?.power || false"
+                        :initialBrightness="deviceState(device)?.brightness || 100"
+                        :initialColor="rgbToHex(deviceState(device)?.color)"
                         @command="(cmd) => handleCommand(device.id, cmd)"
                     />
                     <BulbCard v-else-if="device.type === 'bulb'"
                         :name="device.name"
                         :location="device.room || 'Bilinmiyor'"
-                        :initialState="device.state?.power || false"
-                        :initialBrightness="device.state?.brightness || 100"
-                        :initialTemperature="device.state?.temperature || 50"
+                        :initialState="deviceState(device)?.power || false"
+                        :initialBrightness="deviceState(device)?.brightness || 100"
+                        :initialTemperature="deviceState(device)?.temperature || 50"
                         @command="(cmd) => handleCommand(device.id, cmd)"
                     />
                     <CurtainCard v-else-if="device.type === 'curtain'"
                         :name="device.name"
                         :location="device.room || 'Bilinmiyor'"
-                        :initialPosition="device.state?.position || 0"
+                        :initialPosition="deviceState(device)?.position || 0"
                         @command="(cmd) => handleCommand(device.id, cmd)"
                     />
                     <PlugCard v-else-if="device.type === 'plug'"
                         :name="device.name"
                         :location="device.room || 'Bilinmiyor'"
-                        :initialState="device.state?.power || false"
+                        :initialState="deviceState(device)?.power || false"
                         :connectedDevice="device.config?.connected_device || ''"
-                        :initialPower="device.state?.power_watt || 0"
+                        :initialPower="deviceState(device)?.power_watt || 0"
                         @command="(cmd) => handleCommand(device.id, cmd)"
                     />
                     <SwitchCard v-else-if="device.type === 'switch'"
@@ -86,13 +93,20 @@
                         :initialChannels="formatChannels(device)"
                         @command="(cmd) => handleCommand(device.id, cmd)"
                     />
+                    <RelayCard v-else-if="device.type === 'relay'"
+                        :name="device.name"
+                        :location="device.room || 'Bilinmiyor'"
+                        :channelCount="device.config?.channel_count || 8"
+                        :initialChannels="formatRelayChannels(device)"
+                        @command="(cmd) => handleCommand(device.id, cmd)"
+                    />
                     <ClimateDeviceCard v-else-if="device.type === 'climate_ac'"
                         :name="device.name"
                         :location="device.room || 'Bilinmiyor'"
-                        :currentTemp="device.state?.current_temp || 24"
-                        :targetTemp="device.state?.target_temp || 22"
-                        :mode="device.state?.mode || 'cool'"
-                        :isOn="device.state?.power || false"
+                        :currentTemp="deviceState(device)?.current_temp || 24"
+                        :targetTemp="deviceState(device)?.target_temp || 22"
+                        :mode="deviceState(device)?.mode || 'cool'"
+                        :isOn="deviceState(device)?.power || false"
                         @command="(cmd) => handleCommand(device.id, cmd)"
                     />
                     <SensorCard v-else-if="device.category === 'sensor'"
@@ -101,14 +115,14 @@
                         :sensorType="getSensorType(device.type)"
                         :value="getSensorValue(device)"
                         :unit="getSensorUnit(device.type)"
-                        :isOnline="device.is_online"
+                        :isOnline="deviceOnline(device)"
                     />
                     <SecurityCard v-else-if="device.category === 'security'"
                         :name="device.name"
                         :location="device.room || 'Bilinmiyor'"
                         :deviceType="getSecurityType(device.type)"
-                        :isLocked="device.state?.locked ?? device.state?.armed ?? true"
-                        :lastActivity="device.state?.last_activity || '-'"
+                        :isLocked="deviceState(device)?.locked ?? deviceState(device)?.armed ?? true"
+                        :lastActivity="deviceState(device)?.last_activity || '-'"
                         @command="(cmd) => handleCommand(device.id, cmd)"
                     />
                 </template>
@@ -138,10 +152,6 @@
                     <h2 class="text-2xl font-bold dark:text-white">Cihaz Yönetimi</h2>
                     <p class="text-slate-500 dark:text-slate-400 mt-1">Tüm akıllı ev cihazlarınız.</p>
                 </div>
-                <button class="px-5 py-2.5 rounded-xl bg-primary hover:bg-blue-600 text-white font-semibold text-sm flex items-center gap-2 self-start sm:self-auto transition-all">
-                    <span class="material-symbols-outlined text-lg">add_circle</span>
-                    Cihaz Ekle
-                </button>
             </div>
             <DeviceTabsDynamic :devices="devices" :rooms="rooms" @command="handleCommand" />
         </div>
@@ -167,7 +177,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, reactive, onMounted, onUnmounted } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import StatsCard from '@/Components/StatsCard.vue';
 import LedStripCard from '@/Components/LedStripCard.vue';
@@ -175,6 +185,7 @@ import BulbCard from '@/Components/BulbCard.vue';
 import CurtainCard from '@/Components/CurtainCard.vue';
 import PlugCard from '@/Components/PlugCard.vue';
 import SwitchCard from '@/Components/SwitchCard.vue';
+import RelayCard from '@/Components/RelayCard.vue';
 import ClimateDeviceCard from '@/Components/ClimateDeviceCard.vue';
 import SensorCard from '@/Components/SensorCard.vue';
 import SecurityCard from '@/Components/SecurityCard.vue';
@@ -193,11 +204,76 @@ const props = defineProps({
 });
 
 const commandFeedback = ref('');
+const syncing = ref(false);
 
-// Hızlı kontrol için ilk 8 cihaz
-const quickControlDevices = computed(() => {
-    return props.devices.slice(0, 8);
+// Cihaz state'lerini tutacak yerel overlay map { [deviceId]: { state, is_online } }
+// Inertia props immutable olduğu için komut sonrası / polling sonrası burayı güncelliyoruz
+const liveStates = reactive({});
+
+// Tüm cihaz state'lerini API'den çek
+const fetchStates = async () => {
+    try {
+        const res = await fetch('/api/v1/devices/states', {
+            headers: { 'Accept': 'application/json' },
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.success) {
+            Object.assign(liveStates, data.data);
+        }
+    } catch (e) {
+        // sessizce geç, bir sonraki poll'da tekrar dener
+    }
+};
+
+// Tüm cihazlara get_state MQTT gönder → firmware data topiğiyle cevap verir → handleData günceller
+const syncAllStates = async () => {
+    syncing.value = true;
+    try {
+        await fetch('/api/v1/devices/sync', {
+            method: 'POST',
+            headers: {
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content ?? '',
+            },
+        });
+        // 2 saniye bekle (cihazlar cevap verecek), sonra DB'deki güncel state'i çek
+        setTimeout(fetchStates, 2000);
+        showFeedback('Cihaz durumları sorgulanıyor...');
+    } catch (e) {
+        console.error('sync error', e);
+    } finally {
+        setTimeout(() => { syncing.value = false; }, 2500);
+    }
+};
+
+// State'i okurken liveStates öncelikli, yoksa Inertia prop
+const deviceState = (device) => liveStates[device.id]?.state ?? device.state ?? {};
+const deviceOnline = (device) => liveStates[device.id]?.is_online ?? device.is_online;
+
+// 30 saniyede bir state'leri yenile
+let refreshTimer = null;
+onMounted(() => {
+    fetchStates();
+    refreshTimer = setInterval(fetchStates, 30000);
 });
+onUnmounted(() => {
+    if (refreshTimer) clearInterval(refreshTimer);
+});
+
+// Hızlı kontrol — DashboardController zaten filtreliyor, slice gerekmez
+const quickControlDevices = computed(() => props.devices);
+
+// rgb(R, G, B) formatını #RRGGBB hex'e çevirir (LedStripCard için)
+const rgbToHex = (color) => {
+    if (!color) return '#FFFFFF';
+    if (color.startsWith('#')) return color;
+    const m = color.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+    if (!m) return '#FFFFFF';
+    return '#' + [m[1], m[2], m[3]]
+        .map(n => parseInt(n).toString(16).padStart(2, '0'))
+        .join('');
+};
 
 const showFeedback = (message) => {
     commandFeedback.value = message;
@@ -216,7 +292,7 @@ const handleCommand = async (deviceId, command) => {
             slug = command.value ? 'turn_on' : 'turn_off';
         } else if (type === 'brightness') {
             slug = 'brightness';
-            params.brightness = command.value;
+            params.brightness = parseInt(command.value);
         } else if (type === 'color') {
             slug = 'color';
             // hex → rgb() dönüşümü
@@ -240,6 +316,11 @@ const handleCommand = async (deviceId, command) => {
             slug = 'channel_toggle';
             params.channel = command.channel;
             params.value = command.value;
+        } else if (type === 'relay_channel') {
+            slug = command.value ? 'relay_turn_on' : 'relay_turn_off';
+            params.endpoint = command.endpoint;
+        } else if (type === 'relay_all') {
+            slug = command.value ? 'turn_on' : 'turn_off';
         } else if (type === 'temperature') {
             slug = 'set_temperature';
             params.temperature = command.value;
@@ -310,8 +391,21 @@ const runScene = async (sceneId) => {
 };
 
 // Helper fonksiyonlar
+const formatRelayChannels = (device) => {
+    const count = device.config?.channel_count || 8;
+    const endpoints = device.config?.onoff_endpoints?.length
+        ? device.config.onoff_endpoints
+        : Array.from({ length: count }, (_, i) => i + 1);
+    const states = deviceState(device)?.channels || {};
+    return endpoints.map((ep, i) => ({
+        endpoint: ep,
+        name: `Kanal ${i + 1}`,
+        isOn: states[ep] ?? false,
+    }));
+};
+
 const formatChannels = (device) => {
-    const channels = device.state?.channels || [];
+    const channels = deviceState(device)?.channels || [];
     const names = device.config?.channel_names || ['Kanal 1', 'Kanal 2', 'Kanal 3', 'Kanal 4'];
     const icons = ['light', 'table_lamp', 'fluorescent', 'nightlight'];
     
@@ -332,15 +426,10 @@ const getSensorType = (type) => {
 };
 
 const getSensorValue = (device) => {
-    if (device.type === 'sensor_temperature') {
-        return device.state?.temperature || 0;
-    }
-    if (device.type === 'sensor_humidity') {
-        return device.state?.humidity || 0;
-    }
-    if (device.type === 'sensor_motion') {
-        return device.state?.motion ? 'Hareket Var' : 'Hareket Yok';
-    }
+    const s = deviceState(device);
+    if (device.type === 'sensor_temperature') return s?.temperature || 0;
+    if (device.type === 'sensor_humidity')    return s?.humidity || 0;
+    if (device.type === 'sensor_motion')      return s?.motion ? 'Hareket Var' : 'Hareket Yok';
     return 0;
 };
 

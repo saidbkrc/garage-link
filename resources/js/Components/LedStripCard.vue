@@ -23,9 +23,9 @@
                 class="size-12 rounded-2xl flex items-center justify-center transition-all"
                 :class="isOn ? 'shadow-[0_0_20px_var(--glow-color)]' : 'bg-slate-200 dark:bg-slate-700 text-slate-400'"
                 :style="isOn ? {
-                    backgroundColor: selectedColor + '33',
-                    color: selectedColor,
-                    '--glow-color': selectedColor + '4D'
+                    backgroundColor: displayColor + '22',
+                    color: displayColor,
+                    '--glow-color': displayColor + '4D'
                 } : {}">
                 <span class="material-symbols-outlined text-3xl" :class="isOn ? 'filled-icon' : ''">
                     {{ isOn ? 'lightbulb' : 'lightbulb_outline' }}
@@ -35,10 +35,12 @@
 
         <!-- Renk Seçici Butonu - Sağ Üst Köşe -->
         <button v-if="isOn" @click.stop="showColorPicker = !showColorPicker"
-            class="absolute top-4 right-4 z-20 size-10 rounded-full border-2 border-white dark:border-slate-800 shadow-lg transition-all hover:scale-110 hover:shadow-xl flex items-center justify-center"
+            class="absolute top-4 right-4 z-20 size-10 rounded-full border-2 shadow-lg transition-all hover:scale-110 hover:shadow-xl flex items-center justify-center"
+            :class="isColorLight(selectedColor) ? 'border-slate-300 dark:border-slate-500 ring-2 ring-slate-200 dark:ring-slate-600' : 'border-white dark:border-slate-800'"
             :style="{ background: `linear-gradient(135deg, ${selectedColor}cc, ${selectedColor})` }"
             title="Renk Seç">
-            <span class="material-symbols-outlined text-white text-lg drop-shadow">palette</span>
+            <span class="material-symbols-outlined text-lg drop-shadow"
+                :style="isColorLight(selectedColor) ? { color: '#64748b' } : { color: 'white' }">palette</span>
         </button>
 
         <!-- İsim + Tip Badge -->
@@ -58,7 +60,7 @@
         <div class="mt-4 space-y-2" :class="isOn ? '' : 'opacity-30'">
             <div class="flex justify-between text-xs font-bold text-slate-400">
                 <span>Parlaklık</span>
-                <span :style="isOn ? { color: selectedColor } : {}">{{ brightness }}%</span>
+                <span :style="isOn ? { color: displayColor } : {}">{{ brightness }}%</span>
             </div>
             <input type="range" min="0" max="100" v-model="brightness" @change="changeBrightness" :disabled="!isOn"
                 class="w-full h-1.5 rounded-full appearance-none cursor-pointer"
@@ -68,7 +70,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
 
 const props = defineProps({
     name: { type: String, default: 'LED Şerit' },
@@ -87,17 +89,28 @@ const customColor = ref(props.initialColor);
 const showColorPicker = ref(false);
 const colorPickerRef = ref(null);
 
+// Polling / senkronizasyondan gelen prop güncellemelerini yerel state'e yansıt
+watch(() => props.initialState,      (v) => { isOn.value = v; });
+watch(() => props.initialBrightness, (v) => { brightness.value = v; });
+watch(() => props.initialColor,      (v) => { selectedColor.value = v; customColor.value = v; });
+
 const presetColors = [
     '#67E8F9', '#FB923C', '#F87171', '#4ADE80', '#A855F7',
     '#FACC15', '#60A5FA', '#F472B6', '#FFFFFF', '#2DD4BF'
 ];
 
+// Açık renk (beyaz gibi) seçilince görsel elementlerde kullanılacak yedek renk
+const displayColor = computed(() =>
+    isColorLight(selectedColor.value) ? '#94a3b8' : selectedColor.value
+);
+
 const sliderStyle = computed(() => {
     if (!isOn.value) return { background: '#e2e8f0' };
     const percent = brightness.value;
+    const fill = displayColor.value;
     return {
-        background: `linear-gradient(to right, ${selectedColor.value} 0%, ${selectedColor.value} ${percent}%, #e2e8f0 ${percent}%, #e2e8f0 100%)`,
-        '--thumb-color': selectedColor.value
+        background: `linear-gradient(to right, ${fill} 0%, ${fill} ${percent}%, #e2e8f0 ${percent}%, #e2e8f0 100%)`,
+        '--thumb-color': fill
     };
 });
 
@@ -123,5 +136,14 @@ const changeBrightness = () => {
 const changeColor = (color) => {
     selectedColor.value = color;
     emit('command', { type: 'color', value: color });
+};
+
+// Luminance hesabı: açık renk (beyaz gibi) ise true döner
+const isColorLight = (hex) => {
+    if (!hex?.startsWith('#') || hex.length < 7) return false;
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return (r * 299 + g * 587 + b * 114) / 1000 > 180;
 };
 </script>

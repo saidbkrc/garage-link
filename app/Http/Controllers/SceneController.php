@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Device;
 use App\Models\Scene;
+use App\Services\MqttService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
@@ -159,83 +160,56 @@ class SceneController extends Controller
     }
 
     /**
-     * Senaryo çalıştır
+     * Senaryo çalıştır — her aksiyon için MQTT komutu gönderir
      */
-    public function run(Scene $scene)
+    public function run(Request $request, Scene $scene, MqttService $mqttService)
     {
-        $user = Auth::guard('dealer')->user();
+        $user = Auth::guard('dealer')->user() ?? Auth::guard('sanctum')->user();
 
-        // Yetki kontrolü
         if ($scene->dealer_id !== $user->dealer_id) {
             abort(403);
         }
 
-        $actions = $scene->actions ?? [];
-        $results = [];
+        // Senaryo aksiyon komutlarını MQTT slug'larına eşleştir
+        $slugMap = [
+            'turn_on'        => 'turn_on',
+            'turn_off'       => 'turn_off',
+            'toggle'         => 'toggle',
+            'set_brightness' => 'brightness',
+            'set_color'      => 'color',
+            'color'          => 'color',
+        ];
 
-        foreach ($actions as $action) {
-            $device = Device::find($action['device_id']);
+        $executed = 0;
+        foreach ($scene->actions ?? [] as $action) {
+            $device = Device::find($action['device_id'] ?? null);
 
-            if (!$device || $device->dealer_id !== $user->dealer_id) {
+            if (!$device || $device->dealer_id !== $user->dealer_id || !$device->is_active) {
                 continue;
             }
 
-            // Execute command based on type
-            $command = $action['command'];
-            $params = $action['params'] ?? [];
+            $actionCommand = $action['command'] ?? null;
+            $params        = $action['params'] ?? [];
+            $mqttSlug      = $slugMap[$actionCommand] ?? null;
 
-            // Update device state based on command
-            $newState = $device->current_state ?? [];
-
-            switch ($command) {
-                case 'turn_on':
-                    $newState['power'] = true;
-                    break;
-                case 'turn_off':
-                    $newState['power'] = false;
-                    break;
-                case 'set_brightness':
-                    $newState['power'] = true;
-                    $newState['brightness'] = $params['brightness'] ?? 100;
-                    break;
-                case 'set_color':
-                    $newState['power'] = true;
-                    $newState['color'] = $params['color'] ?? '#FFFFFF';
-                    break;
-                case 'set_temperature':
-                    $newState['power'] = true;
-                    $newState['target_temp'] = $params['temperature'] ?? 22;
-                    break;
-                case 'set_position':
-                    $newState['position'] = $params['position'] ?? 0;
-                    break;
-                case 'lock':
-                    $newState['locked'] = true;
-                    break;
-                case 'unlock':
-                    $newState['locked'] = false;
-                    break;
-                case 'arm':
-                    $newState['armed'] = true;
-                    break;
-                case 'disarm':
-                    $newState['armed'] = false;
-                    break;
+            if ($mqttSlug) {
+                try {
+                    $mqttService->sendCommandBySlug($device, $mqttSlug, $params, $user->id);
+                    $executed++;
+                } catch (\Exception $e) {
+                    // Cihaz erişilemez olsa bile diğer aksiyonlara devam et
+                }
             }
-
-            $device->updateState($newState);
-
-            // TODO: Send MQTT command to actual device
-            // $this->mqttService->publish($device->mqtt_topic, $command, $params);
-
-            $results[] = [
-                'device_id' => $device->id,
-                'device_name' => $device->name,
-                'command' => $command,
-                'success' => true,
-            ];
         }
 
-        return redirect()->back()->with('success', "Senaryo çalıştırıldı: {$scene->name}");
+        if ($request->expectsJson()) {
+            return response()->json([
+                'success'  => true,
+                'message'  => "«{$scene->name}» çalıştırıldı",
+                'executed' => $executed,
+            ]);
+        }
+
+        return redirect()->back()->with('success', "«{$scene->name}» çalıştırıldı — {$executed} cihaza komut gönderildi");
     }
 }

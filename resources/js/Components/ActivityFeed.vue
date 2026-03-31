@@ -2,25 +2,44 @@
     <div class="bg-white/80 dark:bg-slate-900/60 backdrop-blur-sm p-6 rounded-2xl border border-slate-200 dark:border-slate-800">
         <div class="flex items-center justify-between mb-4">
             <h3 class="font-bold text-lg dark:text-white">Gerçek Zamanlı Aktivite</h3>
-            <span class="flex items-center gap-1.5 text-xs font-bold text-green-500">
-                <span class="size-2 bg-green-500 rounded-full animate-pulse"></span>
-                Canlı
-            </span>
+            <div class="flex items-center gap-3">
+                <button v-if="hasRealAlerts && hasUnread"
+                    @click="markAllRead"
+                    class="text-xs font-semibold text-primary hover:text-primary/80 transition-colors">
+                    Tümünü Okundu
+                </button>
+                <span class="flex items-center gap-1.5 text-xs font-bold text-green-500">
+                    <span class="size-2 bg-green-500 rounded-full animate-pulse"></span>
+                    Canlı
+                </span>
+            </div>
         </div>
 
         <div class="space-y-4">
-            <div v-for="(item, i) in displayActivities" :key="i"
-                 class="flex gap-3 items-start pl-3 border-l-2 transition-colors"
-                 :class="borderColorClass(item.type)">
+            <div v-for="item in displayActivities" :key="item.id ?? item.title"
+                 class="flex gap-3 items-start pl-3 border-l-2 transition-all"
+                 :class="[borderColorClass(item.type), item.is_read === false ? 'bg-slate-50/50 dark:bg-slate-800/30 rounded-r-xl pr-2' : '']">
                 <div class="flex-1 min-w-0">
-                    <p class="font-bold text-sm dark:text-white">{{ item.title }}</p>
+                    <p class="font-bold text-sm dark:text-white flex items-center gap-1.5">
+                        {{ item.title }}
+                        <span v-if="item.is_read === false"
+                            class="size-1.5 bg-primary rounded-full inline-block flex-shrink-0"></span>
+                    </p>
                     <p class="text-slate-400 text-xs mt-0.5">{{ item.message || item.description }}</p>
                     <p class="text-[10px] text-slate-500 mt-1 uppercase">{{ formatTime(item.created_at) || item.time }}</p>
                 </div>
-                <span class="material-symbols-outlined text-sm mt-0.5"
-                      :class="iconColorClass(item.type)">
-                    {{ getIcon(item.type) }}
-                </span>
+                <div class="flex items-center gap-1 flex-shrink-0">
+                    <span class="material-symbols-outlined text-sm mt-0.5"
+                          :class="iconColorClass(item.type)">
+                        {{ getIcon(item.type) }}
+                    </span>
+                    <button v-if="item.id && item.is_read === false"
+                        @click="markRead(item)"
+                        class="size-5 flex items-center justify-center rounded-full text-slate-300 hover:text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                        title="Okundu işaretle">
+                        <span class="material-symbols-outlined text-xs">close</span>
+                    </button>
+                </div>
             </div>
 
             <!-- Boş durum -->
@@ -30,18 +49,54 @@
             </div>
         </div>
 
-        <button class="w-full mt-6 text-slate-500 dark:text-slate-400 text-sm font-bold hover:text-primary transition-colors">
+        <a href="/logs" class="block w-full mt-6 text-center text-slate-500 dark:text-slate-400 text-sm font-bold hover:text-primary transition-colors">
             Tüm Logları Gör →
-        </button>
+        </a>
     </div>
 </template>
 
 <script setup>
-import { computed } from 'vue';
+import { ref, computed } from 'vue';
 
 const props = defineProps({
     alerts: { type: Array, default: () => [] }
 });
+
+const localAlerts = ref([...props.alerts]);
+
+const hasRealAlerts = computed(() => localAlerts.value.length > 0);
+const hasUnread     = computed(() => localAlerts.value.some(a => a.is_read === false));
+
+const markRead = async (item) => {
+    try {
+        await fetch(`/alerts/${item.id}/read`, {
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content ?? '',
+                'Accept': 'application/json',
+            },
+        });
+        const idx = localAlerts.value.findIndex(a => a.id === item.id);
+        if (idx !== -1) localAlerts.value[idx] = { ...localAlerts.value[idx], is_read: true };
+    } catch (e) {
+        console.error('markRead error', e);
+    }
+};
+
+const markAllRead = async () => {
+    try {
+        await fetch('/alerts/read-all', {
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content ?? '',
+                'Accept': 'application/json',
+            },
+        });
+        localAlerts.value = localAlerts.value.map(a => ({ ...a, is_read: true }));
+    } catch (e) {
+        console.error('markAllRead error', e);
+    }
+};
 
 // Eğer alerts boşsa demo veri göster
 const demoActivities = [
@@ -78,8 +133,8 @@ const demoActivities = [
 ];
 
 const displayActivities = computed(() => {
-    if (props.alerts && props.alerts.length > 0) {
-        return props.alerts;
+    if (localAlerts.value.length > 0) {
+        return localAlerts.value;
     }
     return demoActivities;
 });

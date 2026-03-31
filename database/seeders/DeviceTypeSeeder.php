@@ -86,6 +86,17 @@ class DeviceTypeSeeder extends Seeder
                 'default_state' => ['motion' => false],
             ],
 
+            // Röle
+            [
+                'name'          => 'Röle Kartı',
+                'slug'          => 'relay',
+                'category'      => 'relay',
+                'icon'          => 'settings_input_component',
+                'capabilities'  => ['channels'],
+                'default_state' => ['channels' => []],
+                'config_schema' => ['channel_count' => 8, 'onoff_endpoints' => []],
+            ],
+
             // Güvenlik
             [
                 'name' => 'Kapı Kilidi',

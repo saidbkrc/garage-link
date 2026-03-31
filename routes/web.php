@@ -1,12 +1,17 @@
 <?php
 
+use App\Http\Controllers\AlertController;
 use App\Http\Controllers\Auth\AuthController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DeviceController;
 use App\Http\Controllers\GatewayController;
+use App\Http\Controllers\LogController;
 use App\Http\Controllers\RoomController;
 use App\Http\Controllers\SceneController;
+use App\Http\Controllers\ScheduleController;
+use App\Http\Controllers\SettingsController;
+use App\Http\Controllers\UserController;
 use App\Services\MqttService;
 use App\Models\Device;
 use Inertia\Inertia;
@@ -68,4 +73,28 @@ Route::middleware('auth:dealer')->group(function () {
     Route::put('/scenes/{scene}', [SceneController::class, 'update'])->name('scenes.update');
     Route::delete('/scenes/{scene}', [SceneController::class, 'destroy'])->name('scenes.destroy');
     Route::post('/scenes/{scene}/run', [SceneController::class, 'run'])->name('scenes.run');
+
+    // Schedules
+    Route::get('/schedules', [ScheduleController::class, 'index'])->name('schedules.index');
+    Route::post('/schedules', [ScheduleController::class, 'store'])->name('schedules.store');
+    Route::put('/schedules/{schedule}', [ScheduleController::class, 'update'])->name('schedules.update');
+    Route::delete('/schedules/{schedule}', [ScheduleController::class, 'destroy'])->name('schedules.destroy');
+
+    // Logs
+    Route::get('/logs', [LogController::class, 'index'])->name('logs.index');
+
+    // Users
+    Route::get('/users', [UserController::class, 'index'])->name('users.index');
+    Route::post('/users', [UserController::class, 'store'])->name('users.store');
+    Route::put('/users/{user}', [UserController::class, 'update'])->name('users.update');
+    Route::delete('/users/{user}', [UserController::class, 'destroy'])->name('users.destroy');
+
+    // Settings
+    Route::get('/settings', [SettingsController::class, 'index'])->name('settings.index');
+    Route::put('/settings/profile', [SettingsController::class, 'updateProfile'])->name('settings.profile');
+    Route::put('/settings/password', [SettingsController::class, 'updatePassword'])->name('settings.password');
+
+    // Alerts
+    Route::post('/alerts/{alert}/read', [AlertController::class, 'markRead'])->name('alerts.read');
+    Route::post('/alerts/read-all', [AlertController::class, 'markAllRead'])->name('alerts.read-all');
 });

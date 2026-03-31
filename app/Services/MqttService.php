@@ -6,7 +6,8 @@ use App\Models\Command;
 use App\Models\Device;
 use App\Models\DeviceLog;
 use Illuminate\Support\Facades\Cache;
-use PhpMqtt\Client\Facades\MQTT;
+use PhpMqtt\Client\ConnectionSettings;
+use PhpMqtt\Client\MqttClient;
 
 class MqttService
 {
@@ -31,7 +32,7 @@ class MqttService
         $payload = $command->buildPayload($params);
         $message = json_encode($payload);
 
-        MQTT::connection()->publish($topic, $message, 1);
+        $this->mqttPublish($topic, $message);
 
         $this->updateDeviceState($device, $command, $params);
 
@@ -62,7 +63,7 @@ class MqttService
         $payload = $command->buildPayload($params);
         $message = json_encode($payload);
 
-        MQTT::connection()->publish($topic, $message, 1);
+        $this->mqttPublish($topic, $message);
     }
 
     protected function updateDeviceState(Device $device, Command $command, array $params): void
@@ -103,6 +104,26 @@ class MqttService
 
     public function publishRaw(string $topic, string $message): void
     {
-        MQTT::connection()->publish($topic, $message);
+        $this->mqttPublish($topic, $message);
+    }
+
+    /**
+     * Her publish için yeni bir bağlantı açar (unique client_id).
+     * Bu sayede mqtt:subscribe bağlantısını kesmez.
+     */
+    private function mqttPublish(string $topic, string $message, int $qos = 1): void
+    {
+        $host     = config('mqtt-client.connections.default.host');
+        $port     = (int) config('mqtt-client.connections.default.port', 1883);
+        $clientId = 'glink_pub_' . substr(uniqid(), -8);
+
+        $settings = (new ConnectionSettings())
+            ->setConnectTimeout(10)
+            ->setSocketTimeout(5);
+
+        $mqtt = new MqttClient($host, $port, $clientId, MqttClient::MQTT_3_1);
+        $mqtt->connect($settings, true);
+        $mqtt->publish($topic, $message, $qos);
+        $mqtt->disconnect();
     }
 }

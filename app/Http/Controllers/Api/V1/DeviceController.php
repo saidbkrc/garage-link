@@ -36,6 +36,32 @@ class DeviceController extends Controller
         ]);
     }
 
+    /**
+     * Henüz aktifleştirilmemiş (is_active=false) ama gateway'e bağlı cihazları listeler.
+     * "Cihaz Ekle" modalında kullanılır.
+     */
+    public function pending(Request $request)
+    {
+        $dealerId = $request->user()->dealer_id;
+
+        $devices = Device::with(['deviceType', 'gateway'])
+            ->where('dealer_id', $dealerId)
+            ->where('is_active', false)
+            ->whereNotNull('gateway_db_id')
+            ->get()
+            ->map(fn($d) => [
+                'id'        => $d->id,
+                'ieee_addr' => $d->ieee_addr,
+                'name'      => $d->name,
+                'type_id'   => $d->device_type_id,
+                'type_name' => $d->deviceType?->name,
+                'gateway'   => $d->gateway?->gateway_id,
+                'gateway_name' => $d->gateway?->name,
+            ]);
+
+        return response()->json(['success' => true, 'data' => $devices]);
+    }
+
     public function show(Request $request, $id)
     {
         $dealerId = $request->user()->dealer_id;
@@ -82,19 +108,25 @@ class DeviceController extends Controller
     {
         $dealerId = $request->user()->dealer_id;
 
+        // is_active=false cihazları da güncelleyebilmek için filtre kaldırıldı
         $device = Device::where('dealer_id', $dealerId)->findOrFail($id);
 
         $request->validate([
-            'name' => 'sometimes|string|max:255',
-            'mac_address' => 'sometimes|string|unique:devices,mac_address,' . $device->id,
+            'name'           => 'sometimes|string|max:255',
+            'device_type_id' => 'sometimes|nullable|exists:device_types,id',
+            'is_active'      => 'sometimes|boolean',
+            'mac_address'    => 'sometimes|string|unique:devices,mac_address,' . $device->id,
         ]);
 
-        $device->update($request->only(['name', 'mac_address', 'mqtt_topic', 'settings']));
+        $device->update($request->only([
+            'name', 'mac_address', 'mqtt_topic', 'settings',
+            'is_active', 'device_type_id',
+        ]));
 
         return response()->json([
             'success' => true,
             'message' => 'Cihaz güncellendi',
-            'data' => $device,
+            'data'    => $device->fresh()->load('deviceType'),
         ]);
     }
 
@@ -122,6 +154,60 @@ class DeviceController extends Controller
             'success' => true,
             'data' => $state,
         ]);
+    }
+
+    /**
+     * Tüm aktif cihazların anlık state'ini döner (polling için).
+     * GET /api/v1/devices/states
+     */
+    public function states(Request $request)
+    {
+        $dealerId = $request->user()->dealer_id;
+
+        $devices = Device::where('dealer_id', $dealerId)
+            ->where('is_active', true)
+            ->get(['id', 'current_state', 'is_online', 'last_seen_at', 'state_updated_at']);
+
+        $result = [];
+        foreach ($devices as $device) {
+            // Redis cache öncelikli, yoksa DB
+            $cached = $this->mqttService->getDeviceState($device);
+            $result[$device->id] = [
+                'state'            => empty($cached) ? ($device->current_state ?? []) : $cached,
+                'is_online'        => $device->is_online,
+                'last_seen_at'     => $device->last_seen_at,
+                'state_updated_at' => $device->state_updated_at,
+            ];
+        }
+
+        return response()->json(['success' => true, 'data' => $result]);
+    }
+
+    /**
+     * Tüm aktif cihazlara get_state MQTT komutu gönderir.
+     * POST /api/v1/devices/sync
+     */
+    public function sync(Request $request)
+    {
+        $dealerId = $request->user()->dealer_id;
+
+        $devices = Device::with('gateway')
+            ->where('dealer_id', $dealerId)
+            ->where('is_active', true)
+            ->whereNotNull('ieee_addr')
+            ->get();
+
+        $sent = 0;
+        foreach ($devices as $device) {
+            try {
+                $this->mqttService->sendCommandBySlug($device, 'get_state', [], null);
+                $sent++;
+            } catch (\Exception $e) {
+                \Illuminate\Support\Facades\Log::warning("Sync failed for device #{$device->id}: " . $e->getMessage());
+            }
+        }
+
+        return response()->json(['success' => true, 'queried' => $sent]);
     }
 
     public function sendCommand(Request $request, $id)

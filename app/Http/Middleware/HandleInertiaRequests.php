@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\Alert;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Middleware;
@@ -46,8 +47,11 @@ class HandleInertiaRequests extends Middleware
             ],
             'flash' => [
                 'success' => fn() => $request->session()->get('success'),
-                'error' => fn() => $request->session()->get('error'),
+                'error'   => fn() => $request->session()->get('error'),
             ],
+            'unread_alerts' => fn() => $user
+                ? Alert::where('dealer_id', $user->dealer_id)->where('is_read', false)->count()
+                : 0,
         ];
     }
 }

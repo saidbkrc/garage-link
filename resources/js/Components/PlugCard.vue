@@ -72,7 +72,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { ref, watch } from 'vue';
 
 const props = defineProps({
     name: { type: String, default: 'Akıllı Priz' },
@@ -86,6 +86,9 @@ const emit = defineEmits(['command']);
 
 const isOn = ref(props.initialState);
 const currentPower = ref(props.initialPower);
+
+watch(() => props.initialState, (v) => { isOn.value = v; });
+watch(() => props.initialPower, (v) => { currentPower.value = v; });
 const todayUsage = ref('1.2');
 const usageHistory = ref([30, 45, 60, 40, 75, 55, 80, 65, 90, 70, 85, 95]);
 

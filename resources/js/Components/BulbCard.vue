@@ -77,7 +77,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 
 const props = defineProps({
     name: { type: String, default: 'Akıllı Ampul' },
@@ -91,7 +91,11 @@ const emit = defineEmits(['command']);
 
 const isOn = ref(props.initialState);
 const brightness = ref(props.initialBrightness);
-const temperature = ref(props.initialTemperature); // 0 = sıcak (2700K), 100 = soğuk (6500K)
+const temperature = ref(props.initialTemperature);
+
+watch(() => props.initialState,      (v) => { isOn.value = v; });
+watch(() => props.initialBrightness, (v) => { brightness.value = v; });
+watch(() => props.initialTemperature,(v) => { temperature.value = v; }); // 0 = sıcak (2700K), 100 = soğuk (6500K)
 
 const currentTempColor = computed(() => {
     const t = temperature.value;

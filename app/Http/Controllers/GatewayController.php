@@ -17,32 +17,35 @@ class GatewayController extends Controller
         // Son 10 dakikada mesaj atmış gateway'ler "gerçekten online" sayılır
         $onlineThreshold = now()->subMinutes(10);
 
-        // Bu dealer'ın ONLINE gateway'leri (cihaz sayısı ile)
+        // Bu dealer'ın TÜM gateway'leri (online/offline fark etmez — badge UI'da değişir)
         $myGateways = Gateway::where('dealer_id', $dealerId)
-            ->where('is_online', true)
-            ->where('last_seen_at', '>=', $onlineThreshold)
             ->withCount('devices')
             ->orderByDesc('last_seen_at')
             ->get()
             ->map(fn($g) => [
-                'id'             => $g->id,
-                'gateway_id'     => $g->gateway_id,
-                'name'           => $g->name,
-                'is_online'      => $g->is_online,
-                'last_seen_at'   => $g->last_seen_at,
-                'devices_count'  => $g->devices_count,
+                'id'                => $g->id,
+                'gateway_id'        => $g->gateway_id,
+                'name'              => $g->name,
+                'is_online'         => $g->is_online,
+                'is_actually_online' => $g->is_online
+                    && $g->last_seen_at
+                    && $g->last_seen_at->gte($onlineThreshold),
+                'last_seen_at'      => $g->last_seen_at,
+                'devices_count'     => $g->devices_count,
             ]);
 
-        // Sahiplenilmemiş ama online görünen gateway'ler
+        // Sahiplenilmemiş TÜM gateway'ler (is_online filtresi yok — DB'de kayıt varsa göster)
         $unclaimedGateways = Gateway::whereNull('dealer_id')
-            ->where('is_online', true)
             ->orderByDesc('last_seen_at')
             ->get()
             ->map(fn($g) => [
-                'id'           => $g->id,
-                'gateway_id'   => $g->gateway_id,
-                'is_online'    => $g->is_online,
-                'last_seen_at' => $g->last_seen_at,
+                'id'                => $g->id,
+                'gateway_id'        => $g->gateway_id,
+                'is_online'         => $g->is_online,
+                'is_actually_online' => $g->is_online
+                    && $g->last_seen_at
+                    && $g->last_seen_at->gte($onlineThreshold),
+                'last_seen_at'      => $g->last_seen_at,
             ]);
 
         return Inertia::render('Gateways/Index', [

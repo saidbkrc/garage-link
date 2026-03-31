@@ -29,11 +29,14 @@ class Device extends Model
         'energy_today',
         'energy_total',
         'is_active',
+        'show_in_dashboard',
     ];
+
 
     protected $casts = [
         'is_online' => 'boolean',
         'is_active' => 'boolean',
+        'show_in_dashboard' => 'boolean',
         'last_seen_at' => 'datetime',
         'state_updated_at' => 'datetime',
         'settings' => 'array',

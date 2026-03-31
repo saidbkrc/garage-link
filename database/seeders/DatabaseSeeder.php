@@ -11,6 +11,7 @@ class DatabaseSeeder extends Seeder
         $this->call([
             DealerSeeder::class,      // ← Önce bu çalışsın
             DeviceTypeSeeder::class,
+            CommandSeeder::class,     // ← DeviceType'tan sonra (FK bağımlılığı)
             RoomSeeder::class,
             DeviceSeeder::class,
             SceneSeeder::class,

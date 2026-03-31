@@ -20,18 +20,19 @@ class RoomController extends Controller
 
         $rooms = Room::where('dealer_id', $dealerId)
             ->where('is_active', true)
-            ->withCount(['devices', 'devices as online_count' => function ($query) {
-                $query->where('is_online', true);
-            }])
+            ->withCount([
+                'devices as devices_count' => fn($q) => $q->where('is_active', true),
+                'devices as online_count'  => fn($q) => $q->where('is_active', true)->where('is_online', true),
+            ])
             ->orderBy('order')
             ->get()
             ->map(function ($room) {
                 return [
-                    'id' => $room->id,
-                    'name' => $room->name,
-                    'icon' => $room->icon,
-                    'color' => $room->color ?? 'blue',
-                    'order' => $room->order,
+                    'id'           => $room->id,
+                    'name'         => $room->name,
+                    'icon'         => $room->icon,
+                    'color'        => $room->color ?? 'blue',
+                    'order'        => $room->order,
                     'device_count' => $room->devices_count,
                     'online_count' => $room->online_count,
                 ];

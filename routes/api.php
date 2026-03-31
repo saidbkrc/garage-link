@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\V1\CommandController;
 use App\Http\Controllers\Api\V1\DeviceTypeController;
 use App\Http\Controllers\Api\V1\DashboardController;
 use App\Http\Controllers\Api\V1\GatewayController;
+use App\Http\Controllers\SceneController;
 
 // V1 API Routes
 Route::prefix('v1')->group(function () {
@@ -22,6 +23,9 @@ Route::prefix('v1')->group(function () {
         Route::get('/auth/me', [AuthController::class, 'me']);
 
         // Devices
+        Route::get('/devices/pending', [DeviceController::class, 'pending']);
+        Route::get('/devices/states',  [DeviceController::class, 'states']);   // tüm state'leri toplu döner
+        Route::post('/devices/sync',   [DeviceController::class, 'sync']);     // tüm cihazlara get_state gönder
         Route::get('/devices', [DeviceController::class, 'index']);
         Route::get('/devices/{id}', [DeviceController::class, 'show']);
         Route::post('/devices', [DeviceController::class, 'store']);
@@ -41,10 +45,15 @@ Route::prefix('v1')->group(function () {
         // Dashboard
         Route::get('/dashboard/stats', [DashboardController::class, 'index']);
 
+        // Scenes (API — Dashboard'dan fetch ile çağrılır)
+        Route::post('/scenes/{scene}/run', [SceneController::class, 'run']);
+
         // Gateways
         Route::get('/gateways', [GatewayController::class, 'index']);
+        Route::post('/gateways/scan-all', [GatewayController::class, 'scanAll']);
         Route::post('/gateways/{gatewayId}/claim', [GatewayController::class, 'claim']);
         Route::post('/gateways/{gatewayId}/scan', [GatewayController::class, 'scan']);
         Route::get('/gateways/{gatewayId}/devices', [GatewayController::class, 'devices']);
+        Route::post('/gateways/{gatewayId}/devices/configure', [GatewayController::class, 'configureDevices']);
     });
 });

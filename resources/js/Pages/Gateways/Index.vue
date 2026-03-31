@@ -5,7 +5,24 @@
         <div class="flex items-center justify-between mb-8">
             <div>
                 <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Gateway Yönetimi</h1>
-                <p class="text-slate-500 dark:text-slate-400 mt-1">Bağlı ve bekleyen gateway'lerinizi yönetin.</p>
+                <p class="text-slate-500 dark:text-slate-400 mt-1">
+                    Son güncelleme: {{ formatTime(lastRefreshed) }}
+                    <span class="text-xs text-slate-400">(otomatik: 15s)</span>
+                </p>
+            </div>
+            <div class="flex items-center gap-2">
+                <button @click="scanAllGateways" :disabled="scanningAll"
+                    class="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary/10 hover:bg-primary/20 text-primary font-medium text-sm transition-all disabled:opacity-50">
+                    <span class="material-symbols-outlined text-base"
+                        :class="scanningAll ? 'animate-spin' : ''">wifi_find</span>
+                    {{ scanningAll ? 'Taranıyor...' : 'Tümünü Tara' }}
+                </button>
+                <button @click="refreshPage" :disabled="refreshing"
+                    class="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-medium text-sm transition-all disabled:opacity-50">
+                    <span class="material-symbols-outlined text-base"
+                        :class="refreshing ? 'animate-spin' : ''">refresh</span>
+                    {{ refreshing ? 'Yenileniyor...' : 'Yenile' }}
+                </button>
             </div>
         </div>
 
@@ -24,8 +41,12 @@
                     <div class="flex items-start justify-between">
                         <div>
                             <div class="flex items-center gap-2 mb-1">
-                                <span class="size-2 rounded-full bg-green-500 animate-pulse"></span>
-                                <span class="text-xs font-bold text-green-600 dark:text-green-400">ONLINE</span>
+                                <span class="size-2 rounded-full"
+                                    :class="gw.is_actually_online ? 'bg-green-500 animate-pulse' : 'bg-slate-400'"></span>
+                                <span class="text-xs font-bold"
+                                    :class="gw.is_actually_online ? 'text-green-600 dark:text-green-400' : 'text-slate-400'">
+                                    {{ gw.is_actually_online ? 'ONLINE' : 'OFFLINE' }}
+                                </span>
                             </div>
                             <p class="font-mono text-sm font-bold text-slate-700 dark:text-slate-300">
                                 {{ gw.gateway_id }}
@@ -68,8 +89,12 @@
                     <div class="flex items-start justify-between mb-4">
                         <div>
                             <div class="flex items-center gap-2 mb-1">
-                                <span class="size-2 rounded-full bg-green-500 animate-pulse"></span>
-                                <span class="text-xs font-bold text-green-600 dark:text-green-400">ONLINE</span>
+                                <span class="size-2 rounded-full"
+                                    :class="gw.is_actually_online ? 'bg-green-500 animate-pulse' : 'bg-slate-400'"></span>
+                                <span class="text-xs font-bold"
+                                    :class="gw.is_actually_online ? 'text-green-600 dark:text-green-400' : 'text-slate-400'">
+                                    {{ gw.is_actually_online ? 'ONLINE' : 'OFFLINE' }}
+                                </span>
                             </div>
                             <h3 class="font-bold text-slate-900 dark:text-white">
                                 {{ gw.name || 'Gateway' }}
@@ -110,18 +135,18 @@
 
         <!-- Gateway Cihazları Modal -->
         <div v-if="showDevicesModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-            <div class="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col">
+            <div class="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+
                 <!-- Modal Başlık -->
                 <div class="flex items-center justify-between p-6 border-b border-slate-200 dark:border-slate-800">
                     <div>
                         <h3 class="font-bold text-lg text-slate-900 dark:text-white">
-                            {{ selectedGatewayName || 'Gateway' }} — Cihazlar
+                            {{ selectedGatewayName || 'Gateway' }} — Cihazları Yapılandır
                         </h3>
                         <p class="text-xs text-slate-500 font-mono mt-0.5">{{ selectedGatewayId }}</p>
                     </div>
                     <div class="flex items-center gap-2">
-                        <button @click="refreshDevices"
-                            :disabled="loadingDevices"
+                        <button @click="refreshDevices" :disabled="loadingDevices"
                             class="size-9 rounded-xl bg-primary/10 text-primary hover:bg-primary/20 flex items-center justify-center transition-all disabled:opacity-50"
                             title="Yenile">
                             <span class="material-symbols-outlined text-base"
@@ -137,7 +162,10 @@
                 <!-- Tarama notu -->
                 <div v-if="scanSent" class="mx-6 mt-4 px-4 py-2.5 rounded-xl bg-primary/10 border border-primary/20 flex items-center gap-2">
                     <span class="material-symbols-outlined text-primary text-base animate-pulse">radar</span>
-                    <p class="text-xs text-primary font-medium">Tarama komutu gönderildi. Yeni cihazlar birkaç saniye içinde görünecek — yenilemek için <button @click="refreshDevices" class="underline font-bold">buraya tıklayın</button>.</p>
+                    <p class="text-xs text-primary font-medium">
+                        Tarama komutu gönderildi. Yeni cihazlar birkaç saniye içinde görünecek —
+                        <button @click="refreshDevices" class="underline font-bold">Yenile</button>
+                    </p>
                 </div>
 
                 <!-- Cihaz Listesi -->
@@ -152,29 +180,83 @@
                     </div>
                     <div v-else class="space-y-3">
                         <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">
-                            {{ gatewayDevices.length }} cihaz bulundu
+                            {{ gatewayDevices.length }} cihaz bulundu —
+                            {{ Object.values(deviceForms).filter(f => f.saved).length }} aktif
                         </p>
+
                         <div v-for="device in gatewayDevices" :key="device.id"
-                            class="flex items-center gap-4 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
-                            <div class="size-10 rounded-xl flex items-center justify-center flex-shrink-0"
-                                :class="device.is_active ? 'bg-primary/10 text-primary' : 'bg-slate-200 dark:bg-slate-700 text-slate-500'">
-                                <span class="material-symbols-outlined text-xl">lightbulb</span>
-                            </div>
-                            <div class="flex-1 min-w-0">
-                                <p class="font-semibold text-sm text-slate-900 dark:text-white truncate">{{ device.name }}</p>
-                                <p class="text-xs text-slate-500 font-mono">{{ device.ieee_addr }}</p>
-                            </div>
-                            <div class="text-right flex-shrink-0">
-                                <span class="text-xs font-bold px-2 py-0.5 rounded-full"
-                                    :class="device.is_active
-                                        ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-                                        : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'">
-                                    {{ device.is_active ? 'Aktif' : 'Yapılandır' }}
+                            class="p-4 rounded-2xl border transition-all"
+                            :class="deviceForms[device.id]?.saved
+                                ? 'border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/10'
+                                : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50'">
+
+                            <!-- Üst satır: ikon + ieee + durum badge -->
+                            <div class="flex items-center gap-3 mb-3">
+                                <div class="size-9 rounded-xl flex items-center justify-center flex-shrink-0"
+                                    :class="deviceForms[device.id]?.saved ? 'bg-green-100 text-green-600' : 'bg-primary/10 text-primary'">
+                                    <span class="material-symbols-outlined text-lg">lightbulb</span>
+                                </div>
+                                <p class="text-xs text-slate-400 font-mono flex-1 truncate">{{ device.ieee_addr }}</p>
+                                <span v-if="deviceForms[device.id]?.saved"
+                                    class="text-xs font-bold px-2 py-0.5 rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 flex-shrink-0">
+                                    ✓ Aktif
                                 </span>
-                                <p class="text-xs text-slate-500 mt-0.5">{{ device.type_name }}</p>
+                                <span v-else
+                                    class="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 flex-shrink-0">
+                                    Yapılandır
+                                </span>
                             </div>
+
+                            <!-- İsim input -->
+                            <input
+                                v-if="deviceForms[device.id]"
+                                v-model="deviceForms[device.id].name"
+                                :disabled="deviceForms[device.id].saved"
+                                placeholder="Cihaz adı (örn: Oturma Odası LED)"
+                                class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm mb-2 focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none disabled:opacity-60 transition-all" />
+
+                            <!-- Cihaz tipi dropdown -->
+                            <select
+                                v-if="deviceForms[device.id]"
+                                v-model="deviceForms[device.id].device_type_id"
+                                :disabled="deviceForms[device.id].saved"
+                                class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm mb-3 focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none disabled:opacity-60 transition-all">
+                                <option :value="null">— Cihaz tipi seç —</option>
+                                <option v-for="dt in deviceTypes" :key="dt.id" :value="dt.id">{{ dt.name }}</option>
+                            </select>
+
+                            <!-- Kaydet butonu (tek cihaz) -->
+                            <button
+                                v-if="deviceForms[device.id] && !deviceForms[device.id].saved"
+                                @click="saveDevice(device.id)"
+                                :disabled="deviceForms[device.id].saving || !deviceForms[device.id].name"
+                                class="w-full py-2 rounded-xl bg-primary hover:bg-primary/90 text-white text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-50 transition-all">
+                                <span class="material-symbols-outlined text-base"
+                                    :class="deviceForms[device.id].saving ? 'animate-spin' : ''">
+                                    {{ deviceForms[device.id].saving ? 'refresh' : 'check_circle' }}
+                                </span>
+                                {{ deviceForms[device.id].saving ? 'Kaydediliyor...' : 'Kaydet & Aktifleştir' }}
+                            </button>
                         </div>
                     </div>
+                </div>
+
+                <!-- Modal Footer — Tümünü Kaydet -->
+                <div v-if="gatewayDevices.length > 0"
+                    class="p-5 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between gap-4">
+                    <p class="text-xs text-slate-400">
+                        {{ Object.values(deviceForms).filter(f => f.saved).length }} / {{ gatewayDevices.length }} cihaz aktif
+                    </p>
+                    <button
+                        @click="saveAllDevices"
+                        :disabled="savingAll || Object.values(deviceForms).every(f => f.saved)"
+                        class="px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-sm flex items-center gap-2 disabled:opacity-50 transition-all">
+                        <span class="material-symbols-outlined text-base"
+                            :class="savingAll ? 'animate-spin' : ''">
+                            {{ savingAll ? 'refresh' : 'done_all' }}
+                        </span>
+                        {{ savingAll ? 'Kaydediliyor...' : 'Tümünü Kaydet' }}
+                    </button>
                 </div>
             </div>
         </div>
@@ -195,7 +277,8 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { ref, onMounted, onUnmounted } from 'vue';
+import { router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 
 const props = defineProps({
@@ -206,13 +289,42 @@ const props = defineProps({
 
 const claiming = ref(null);
 const scanning = ref(null);
+const scanningAll = ref(false);
 const toast = ref(null);
+const refreshing = ref(false);
+const lastRefreshed = ref(new Date());
+let refreshInterval = null;
+
+const refreshPage = () => {
+    if (refreshing.value) return;
+    refreshing.value = true;
+    router.reload({
+        only: ['myGateways', 'unclaimedGateways'],
+        onFinish: () => {
+            refreshing.value = false;
+            lastRefreshed.value = new Date();
+        },
+    });
+};
+
+onMounted(() => {
+    refreshInterval = setInterval(refreshPage, 15000);
+});
+
+onUnmounted(() => {
+    if (refreshInterval) clearInterval(refreshInterval);
+});
 const showDevicesModal = ref(false);
 const selectedGatewayId = ref('');
 const selectedGatewayName = ref('');
 const gatewayDevices = ref([]);
 const loadingDevices = ref(false);
 const scanSent = ref(false);
+
+// Cihaz yapılandırma state
+const deviceTypes = ref([]);
+const deviceForms = ref({});
+const savingAll = ref(false);
 
 const showToast = (message, type = 'success') => {
     toast.value = { message, type };
@@ -224,6 +336,29 @@ const getHeaders = () => ({
     'Accept': 'application/json',
     'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content ?? '',
 });
+
+const scanAllGateways = async () => {
+    scanningAll.value = true;
+    try {
+        const response = await fetch('/api/v1/gateways/scan-all', {
+            method: 'POST',
+            headers: getHeaders(),
+        });
+        const data = await response.json();
+        if (data.success) {
+            showToast(`${data.data.gateway_count} gateway taranıyor — cihazlar birkaç saniye içinde güncellenir.`);
+            // 4 saniye sonra sayfayı yenile
+            setTimeout(() => refreshPage(), 4000);
+        } else {
+            showToast('Tarama başlatılamadı', 'error');
+        }
+    } catch (error) {
+        console.error('Scan all error:', error);
+        showToast('Bağlantı hatası', 'error');
+    } finally {
+        scanningAll.value = false;
+    }
+};
 
 const claimGateway = async (gatewayId) => {
     claiming.value = gatewayId;
@@ -260,7 +395,7 @@ const scanAndViewDevices = async (gw) => {
     // Önce mevcut cihazları yükle
     await loadDevices(gw.gateway_id);
 
-    // Tarama komutunu gönder (async, cevap beklemez)
+    // Tarama komutunu gönder
     try {
         const response = await fetch(`/api/v1/gateways/${gw.gateway_id}/scan`, {
             method: 'POST',
@@ -269,6 +404,13 @@ const scanAndViewDevices = async (gw) => {
         const data = await response.json();
         if (data.success) {
             scanSent.value = true;
+            // Gateway MQTT'ye cihaz listesini gönderir, DB'ye yazılması ~3 saniye sürer
+            // Otomatik yenile
+            setTimeout(() => {
+                if (showDevicesModal.value && selectedGatewayId.value === gw.gateway_id) {
+                    loadDevices(gw.gateway_id);
+                }
+            }, 3000);
         }
     } catch (error) {
         console.error('Scan error:', error);
@@ -277,9 +419,21 @@ const scanAndViewDevices = async (gw) => {
     }
 };
 
+const loadDeviceTypes = async () => {
+    if (deviceTypes.value.length) return;
+    try {
+        const res = await fetch('/api/v1/device-types', { headers: getHeaders() });
+        const data = await res.json();
+        if (data.success) deviceTypes.value = data.data;
+    } catch (e) {
+        console.error('Device types error:', e);
+    }
+};
+
 const loadDevices = async (gatewayId) => {
     loadingDevices.value = true;
     gatewayDevices.value = [];
+    deviceForms.value = {};
     try {
         const response = await fetch(`/api/v1/gateways/${gatewayId}/devices`, {
             headers: getHeaders(),
@@ -287,11 +441,88 @@ const loadDevices = async (gatewayId) => {
         const data = await response.json();
         if (data.success) {
             gatewayDevices.value = data.data.devices;
+            // Her cihaz için form state oluştur
+            data.data.devices.forEach(d => {
+                deviceForms.value[d.id] = {
+                    name: d.name || '',
+                    device_type_id: d.type_id ?? null,
+                    saving: false,
+                    saved: d.is_active,
+                };
+            });
         }
     } catch (error) {
         console.error('Devices error:', error);
     } finally {
         loadingDevices.value = false;
+    }
+    await loadDeviceTypes();
+};
+
+const saveDevice = async (deviceId) => {
+    const form = deviceForms.value[deviceId];
+    if (!form || form.saving || form.saved) return;
+    form.saving = true;
+    try {
+        const res = await fetch(`/api/v1/devices/${deviceId}`, {
+            method: 'PUT',
+            headers: getHeaders(),
+            body: JSON.stringify({
+                name: form.name,
+                device_type_id: form.device_type_id,
+                is_active: true,
+            }),
+        });
+        if (res.ok) {
+            form.saved = true;
+            showToast('Cihaz kaydedildi!');
+        } else {
+            showToast('Kayıt başarısız', 'error');
+        }
+    } catch (e) {
+        console.error('Save device error:', e);
+    } finally {
+        form.saving = false;
+    }
+};
+
+const saveAllDevices = async () => {
+    savingAll.value = true;
+    const devicesToSave = Object.entries(deviceForms.value)
+        .filter(([, f]) => !f.saved && f.name)
+        .map(([id, f]) => ({
+            id: parseInt(id),
+            name: f.name,
+            device_type_id: f.device_type_id,
+        }));
+
+    if (!devicesToSave.length) {
+        savingAll.value = false;
+        return;
+    }
+
+    try {
+        const res = await fetch(`/api/v1/gateways/${selectedGatewayId.value}/devices/configure`, {
+            method: 'POST',
+            headers: getHeaders(),
+            body: JSON.stringify({ devices: devicesToSave }),
+        });
+        const data = await res.json();
+        if (data.success) {
+            // Kaydedilen tüm cihazları aktif işaretle
+            devicesToSave.forEach(d => {
+                if (deviceForms.value[d.id]) {
+                    deviceForms.value[d.id].saved = true;
+                }
+            });
+            showToast(`${data.data.saved_count} cihaz kaydedildi ve aktifleştirildi!`);
+        } else {
+            showToast('Kayıt başarısız', 'error');
+        }
+    } catch (e) {
+        console.error('Save all error:', e);
+    } finally {
+        savingAll.value = false;
     }
 };
 

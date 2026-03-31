@@ -13,6 +13,16 @@ class CommandSeeder extends Seeder
             // TEMEL KOMUTLAR
             // topic: pigasoft/{gateway_id}/commands — gateway_id runtime'da MqttService tarafından eklenir
             [
+                'name'             => 'Durum Sorgula',
+                'slug'             => 'get_state',
+                'category'         => 'basic',
+                'mqtt_topic'       => 'pigasoft/{gateway_id}/commands',
+                'payload_template' => ['get_state' => true, 'ieee_addr' => '{ieee_addr}'],
+                'required_params'  => ['ieee_addr'],
+                'description'      => 'Cihazın gerçek anlık durumunu sorgular; cihaz data topiğiyle cevap verir',
+                'order'            => 0,
+            ],
+            [
                 'name' => 'Işığı Aç',
                 'slug' => 'turn_on',
                 'category' => 'basic',
@@ -150,10 +160,32 @@ class CommandSeeder extends Seeder
                 'description' => 'Cihaz eşleştirme izni (saniye, varsayılan 60)',
                 'order' => 40,
             ],
+
+            // RÖLE KOMUTLARI
+            [
+                'name'             => 'Röle Kanalı Aç',
+                'slug'             => 'relay_turn_on',
+                'category'         => 'relay',
+                'mqtt_topic'       => 'pigasoft/{gateway_id}/commands',
+                'payload_template' => ['turn_on' => true, 'ieee_addr' => '{ieee_addr}', 'endpoint' => '{endpoint}'],
+                'required_params'  => ['ieee_addr', 'endpoint'],
+                'description'      => 'Belirtilen röle kanalını (endpoint) açar',
+                'order'            => 50,
+            ],
+            [
+                'name'             => 'Röle Kanalı Kapat',
+                'slug'             => 'relay_turn_off',
+                'category'         => 'relay',
+                'mqtt_topic'       => 'pigasoft/{gateway_id}/commands',
+                'payload_template' => ['turn_off' => true, 'ieee_addr' => '{ieee_addr}', 'endpoint' => '{endpoint}'],
+                'required_params'  => ['ieee_addr', 'endpoint'],
+                'description'      => 'Belirtilen röle kanalını (endpoint) kapatır',
+                'order'            => 51,
+            ],
         ];
 
         foreach ($commands as $command) {
-            Command::create($command);
+            Command::updateOrCreate(['slug' => $command['slug']], $command);
         }
     }
 }

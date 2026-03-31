@@ -3,7 +3,11 @@
         <Sidebar :currentPage="currentPage" />
 
         <main class="flex-1 ml-64 flex flex-col">
-            <Header :title="title" :user="user" />
+            <Header
+                :title="title"
+                :user="user"
+                :notificationCount="$page.props.unread_alerts ?? 0"
+            />
 
             <div class="p-8 space-y-8 flex-1">
                 <slot />
@@ -15,6 +19,7 @@
 </template>
 
 <script setup>
+import { usePage } from '@inertiajs/vue3';
 import Sidebar from '@/Components/Sidebar.vue';
 import Header from '@/Components/Header.vue';
 import Footer from '@/Components/Footer.vue';

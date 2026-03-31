@@ -60,10 +60,19 @@
                     <span class="text-sm">Senaryolar</span>
                 </a>
 
+                <a href="/schedules"
+                    class="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors"
+                    :class="isActive('Zamanlamalar')
+                        ? 'bg-primary/10 text-primary font-bold'
+                        : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'">
+                    <span class="material-symbols-outlined" :class="isActive('Zamanlamalar') ? 'fill-icon' : ''">alarm</span>
+                    <span class="text-sm">Zamanlamalar</span>
+                </a>
+
                 <a href="/logs"
                     class="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors"
-                    :class="isActive('Loglar') 
-                        ? 'bg-primary/10 text-primary font-bold' 
+                    :class="isActive('Loglar')
+                        ? 'bg-primary/10 text-primary font-bold'
                         : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'">
                     <span class="material-symbols-outlined" :class="isActive('Loglar') ? 'fill-icon' : ''">history</span>
                     <span class="text-sm">Loglar</span>
