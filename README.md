@@ -1,66 +1,225 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# GarageLink
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Bayi (dealer) odaklı **IoT akıllı ev / cihaz yönetim paneli**. Bayiler, sahaya kurdukları
+Zigbee gateway'leri ve cihazları (röle, anahtar, ampul, LED şerit, sensör, termostat) tek bir
+panelden yönetir; cihazlara komut gönderir, durumlarını izler, oda/senaryo/zamanlama tanımlar.
 
-## About Laravel
+Cihazlarla iletişim **MQTT** üzerinden, bir Zigbee gateway aracılığıyla yapılır.
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+---
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## Teknoloji Yığını
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+| Katman        | Teknoloji                                              |
+|---------------|--------------------------------------------------------|
+| Backend       | Laravel 12 (PHP 8.2)                                    |
+| Frontend      | Vue 3 + Inertia.js + Tailwind CSS 4 (Vite)             |
+| Admin paneli  | Laravel Nova 5                                          |
+| Auth          | Çift guard — `dealer` (web session) + Sanctum (API)    |
+| Mesajlaşma    | MQTT (`php-mqtt/laravel-client`), EMQX broker          |
+| Cache / State | Redis                                                   |
+| Veritabanı    | MySQL                                                   |
 
-## Learning Laravel
+---
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+## Mimari
 
-You may also try the [Laravel Bootcamp](https://bootcamp.laravel.com), where you will be guided through building a modern Laravel application from scratch.
+```
+  ┌─────────────┐         MQTT          ┌──────────────┐        Zigbee
+  │   Cihazlar  │◄────────────────────► │   Gateway    │◄───────────────► Röle/Ampul/Sensör
+  │  (Zigbee)   │                       │  (pigasoft)  │
+  └─────────────┘                       └──────┬───────┘
+                                               │ MQTT (broker)
+                          ┌────────────────────┴────────────────────┐
+                          │                                         │
+                  ┌───────▼────────┐                       ┌────────▼─────────┐
+                  │ mqtt:subscribe │  (sürekli dinleyici)  │   MqttService    │ (panel → cihaz publish)
+                  │  Artisan cmd   │                       │                  │
+                  └───────┬────────┘                       └────────┬─────────┘
+                          │  yazar                                   │ yazar
+                  ┌───────▼──────────────────────────────────────────▼───────┐
+                  │              MySQL  +  Redis (device state cache)         │
+                  └───────────────────────────┬──────────────────────────────┘
+                                               │
+                                  ┌────────────▼────────────┐
+                                  │  Laravel (Web + API/V1) │
+                                  └────────────┬────────────┘
+                                               │ Inertia
+                                  ┌────────────▼────────────┐
+                                  │   Vue 3 Bayi Paneli     │
+                                  └─────────────────────────┘
+```
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+**İki yönlü akış:**
+- **Panel → Cihaz:** `MqttService` her komut için kısa ömürlü bir publish bağlantısı açar
+  (`glink_pub_*` client id) → `pigasoft/{gateway_id}/commands` topic'ine yayınlar. Komut
+  `DeviceLog` olarak loglanır, beklenen state hem Redis'e hem DB'ye yazılır (iyimser güncelleme).
+- **Cihaz → Panel:** `php artisan mqtt:subscribe` sürekli çalışan bir dinleyicidir; gateway/cihaz
+  mesajlarını yakalar, DB ve Redis state'ini günceller. Bağlantı koparsa 5 sn'de bir otomatik
+  yeniden bağlanır.
 
-## Laravel Sponsors
+---
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+## MQTT Topic Şeması
 
-### Premium Partners
+Tüm topic'ler `pigasoft/{gateway_id}/{suffix}` desenindedir (örn. `pigasoft/gw_04D9C2FEFFEEF648/data`).
 
-- **[Vehikl](https://vehikl.com/)**
-- **[Tighten Co.](https://tighten.co)**
-- **[WebReinvent](https://webreinvent.com/)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel/)**
-- **[Cyber-Duck](https://cyber-duck.co.uk)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Jump24](https://jump24.co.uk)**
-- **[Redberry](https://redberry.international/laravel/)**
-- **[Active Logic](https://activelogic.com)**
-- **[byte5](https://byte5.de)**
-- **[OP.GG](https://op.gg)**
+### Gateway/Cihaz → Panel (subscribe edilen — `MqttSubscribe`)
 
-## Contributing
+| Topic suffix      | Anlamı                          | Örnek payload |
+|-------------------|---------------------------------|---------------|
+| `gateway`         | Gateway kendini tanıtır (hello) | `{"type":"gateway_hello","gateway_id":"gw_XXX","project":"...","fw":"1.0.0","ip":"..."}` |
+| `connectionpub`   | Cihaz online/offline olayı      | `{"event":"device_online","ieee_addr":"CCD8..."}` |
+| `data`            | Cihaz durum güncellemesi        | `{"ieee_addr":"CCD8...","power":true,"brightness":80,"color":"rgb(255,0,0)"}` |
+| `devicelist`      | Cihaz keşfi (her cihaz ayrı msj)| `{"index":2,"ieee_addr":"58DE...","endpoints":[{"in_clusters":[0,3,4,5,6]}]}` |
+| `health`          | Gateway sağlık/uptime           | `{"uptime_seconds":12345}` |
+| `scan_mode`       | Tarama sonuçları                | — |
+| `commands`        | Panelin yayınladığı komutlar (loglama/echo) | — |
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+### Panel → Gateway (publish edilen — `MqttService`)
 
-## Code of Conduct
+Komut topic'leri DB'de `commands.mqtt_topic` alanında saklanır ve `{gateway_id}` yer tutucusu
+çalışma anında ilgili gateway ID'siyle değiştirilir. Payload `Command::buildPayload()` ile üretilir
+ve cihaz tanımlayıcısı olarak öncelikle `ieee_addr` (Zigbee donanım adresi), yoksa `device_index`
+eklenir.
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+### Cihaz tipi tespiti (Zigbee cluster → tip)
 
-## Security Vulnerabilities
+`devicelist` mesajındaki endpoint cluster'larından cihaz tipi otomatik çıkarılır:
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+| Cluster(lar)            | Tip (`slug`)           |
+|-------------------------|------------------------|
+| 768 (Color) + 8 (Level) | `led_strip` (RGB LED)  |
+| 8 (Level), 768 yok      | `bulb` (dim. ampul)    |
+| 6 (On/Off), 8 yok       | `switch` (röle/anahtar)|
+| 513 (Thermostat)        | `climate_ac`           |
+| 1026 (Temperature)      | `sensor_temperature`   |
+| 1030 (Occupancy)        | `sensor_motion`        |
+| `device_name` `relay_*` | `relay` (röle kartı, çok kanallı) |
 
-## License
+---
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+## Veri Modeli (ana tablolar)
+
+- **Dealer** → **DealerUser** — bayi ve panel kullanıcıları (`dealer` auth guard)
+- **Gateway** — sahadaki ağ geçidi. MQTT'de keşfedilince `dealer_id = NULL` (sahipsiz) oluşturulur;
+  bayi panelden **claim** ederek sahiplenir.
+- **Device** + **DeviceType** — cihazlar ve tipleri. Yeni keşfedilen cihaz `is_active=false` başlar;
+  bayi isim verip aktifleştirir. Çok kanallı röle kartı `config.channel_count` ile tutulur.
+- **Room** — oda bazlı gruplama
+- **Scene** — senaryolar (tek tıkla çoklu komut)
+- **Schedule** — zamanlanmış komutlar
+- **Command** — komut tanımları (`slug`, `mqtt_topic`, payload şablonu)
+- **DeviceLog** — gönderilen her komutun kaydı
+- **Alert**, **EnergyUsage** — uyarılar ve enerji tüketimi
+
+---
+
+## Kurulum
+
+### Gereksinimler
+- PHP 8.2+, Composer
+- Node.js 18+ / npm
+- MySQL
+- Docker (Redis + EMQX broker için) — veya harici Redis/MQTT broker
+
+### Adımlar
+
+```bash
+# 1. Bağımlılıklar
+composer install
+npm install
+
+# 2. Ortam dosyası
+cp .env.example .env
+php artisan key:generate
+#   .env içinde DB_*, REDIS_*, MQTT_* değerlerini doldurun
+
+# 3. Altyapı (Redis + EMQX) — Docker ile
+docker-compose up -d
+#   EMQX dashboard: http://localhost:18083
+
+# 4. Veritabanı
+php artisan migrate --seed   # seeder'lar demo bayi/cihaz/oda/senaryo verisi basar
+
+# 5. Frontend
+npm run dev                  # geliştirme (prod için: npm run build)
+```
+
+---
+
+## Çalıştırma
+
+Üç süreç birlikte çalışır:
+
+```bash
+# 1) Web sunucusu
+php artisan serve              # http://localhost:8000
+
+# 2) Vite dev server (frontend)
+npm run dev
+
+# 3) MQTT dinleyici (cihaz mesajlarını işler) — SÜREKLİ çalışmalı
+php artisan mqtt:subscribe
+
+# 4) Reverb WebSocket sunucusu (canlı güncelleme) — SÜREKLİ çalışmalı
+php artisan reverb:start
+```
+
+> Windows'ta MQTT dinleyiciyi başlatmak için `start-mqtt.bat` kullanılabilir.
+> Üretimde dinleyici `supervisor.conf` ile süreç yöneticisi altında çalıştırılır
+> (çökerse otomatik yeniden başlar).
+
+### Geliştirme yardımcısı
+`GET /test/mqtt/{command}` — bir cihaza hızlıca komut gönderir.
+**Yalnızca `local` ortamda ve giriş yapmış bayi için** kayıtlıdır; üretimde hiç yüklenmez.
+
+---
+
+## Canlı Güncelleme (Reverb / WebSocket)
+
+Cihaz durumları panele **gerçek zamanlı** yansır (sayfa yenilemeye gerek yok):
+
+1. Cihaz/gateway MQTT mesajı yollar → `mqtt:subscribe` işler ve DB/Redis'i günceller.
+2. Dinleyici `DeviceStateUpdated` event'ini yayınlar (`ShouldBroadcastNow` — anında, queue worker
+   gerektirmez).
+3. Event, bayiye özel **private kanala** gider: `private-dealer.{dealer_id}`
+   (yetki: `routes/channels.php`, `dealer` guard).
+4. Vue tarafında `resources/js/echo.js` (Laravel Echo + Reverb) kanalı dinler; `Devices/Index.vue`
+   gelen `.device.state` olayıyla ilgili cihazın `is_online`/`state` alanlarını günceller.
+
+Gerekli `.env` anahtarları: `REVERB_APP_ID/KEY/SECRET`, `REVERB_HOST/PORT/SCHEME` ve frontend için
+`VITE_REVERB_*`. Reverb sunucusu `php artisan reverb:start` ile çalışır (üretimde supervisor altında).
+
+## API (V1)
+
+Tüm uçlar `/api/v1` altında. Auth: `auth:dealer,sanctum`. Login `throttle:6,1` ile korunur.
+
+| Method | Uç                                  | Açıklama |
+|--------|-------------------------------------|----------|
+| POST   | `/auth/login`                       | Giriş (token) |
+| GET    | `/auth/me`, POST `/auth/logout`     | Oturum |
+| GET    | `/devices`, `/devices/{id}`         | Cihaz listesi / detay |
+| GET    | `/devices/states`                   | Tüm cihaz state'lerini toplu döner |
+| POST   | `/devices/sync`                     | Tüm cihazlara `get_state` yollar |
+| POST   | `/devices/{id}/command`             | Cihaza komut gönder |
+| POST   | `/commands/group`                   | Grup komutu |
+| GET    | `/gateways`                         | Gateway listesi |
+| POST   | `/gateways/{id}/claim`              | Gateway sahiplen |
+| POST   | `/gateways/{id}/scan`, `/scan-all`  | Cihaz tara |
+| POST   | `/scenes/{scene}/run`               | Senaryo çalıştır |
+
+---
+
+## Önemli `.env` Anahtarları
+
+```ini
+DB_CONNECTION=mysql           # DB_HOST/DATABASE/USERNAME/PASSWORD
+REDIS_HOST=127.0.0.1          # cihaz state cache
+MQTT_HOST=...                 # MQTT broker (örn. EMQX / hivemq)
+MQTT_PORT=1883
+MQTT_CLIENT_ID=garagelink_sub_001   # dinleyici client id
+```
+
+> **Üretim notu:** Canlıda `APP_DEBUG=false` ve `APP_ENV=production` olmalıdır.
+> Uzak MySQL erişim listesinde (`Remote Database Access`) `%` joker host'ları kullanmaktan kaçının.

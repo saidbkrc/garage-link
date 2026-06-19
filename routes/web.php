@@ -14,36 +14,41 @@ use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\UserController;
 use App\Services\MqttService;
 use App\Models\Device;
+use Illuminate\Support\Facades\App;
 use Inertia\Inertia;
 
-Route::get('/test/mqtt/{command}', function ($command, MqttService $mqttService) {
-    $device = Device::first();
+// Geliştirme amaçlı MQTT test ucu — yalnızca local ortamda ve giriş yapmış bayi için.
+// Prod'da bu route hiç kayıt olmaz.
+if (App::environment('local')) {
+    Route::middleware('auth:dealer')->get('/test/mqtt/{command}', function ($command, MqttService $mqttService) {
+        $device = Device::first();
 
-    if (!$device) {
-        return 'Cihaz bulunamadı!';
-    }
+        if (!$device) {
+            return 'Cihaz bulunamadı!';
+        }
 
-    $params = [];
+        $params = [];
 
-    if ($command === 'brightness') {
-        $params['brightness'] = request('value', 50);
-    }
+        if ($command === 'brightness') {
+            $params['brightness'] = request('value', 50);
+        }
 
-    $log = $mqttService->sendCommandBySlug($device, $command, $params);
+        $log = $mqttService->sendCommandBySlug($device, $command, $params);
 
-    return [
-        'success'   => true,
-        'message'   => 'Komut gönderildi',
-        'command'   => $command,
-        'device'    => $device->name,
-        'log_id'    => $log->id,
-        'payload'   => $log->request_payload
-    ];
-});
+        return [
+            'success'   => true,
+            'message'   => 'Komut gönderildi',
+            'command'   => $command,
+            'device'    => $device->name,
+            'log_id'    => $log->id,
+            'payload'   => $log->request_payload
+        ];
+    });
+}
 
 Route::middleware('guest:dealer')->group(function () {
     Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
-    Route::post('/login', [AuthController::class, 'login']);
+    Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:6,1');
 });
 
 Route::middleware('auth:dealer')->group(function () {

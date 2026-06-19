@@ -12,8 +12,8 @@ use App\Http\Controllers\SceneController;
 // V1 API Routes
 Route::prefix('v1')->group(function () {
 
-    // Auth (Public)
-    Route::post('/auth/login', [AuthController::class, 'login']);
+    // Auth (Public) — brute-force koruması için rate-limit
+    Route::post('/auth/login', [AuthController::class, 'login'])->middleware('throttle:6,1');
 
     // Protected Routes — web session (dealer guard) ile çalışır
     Route::middleware('auth:dealer,sanctum')->group(function () {
