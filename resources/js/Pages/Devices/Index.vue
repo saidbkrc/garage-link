@@ -475,8 +475,8 @@
 </template>
 
 <script setup>
-import { ref, computed, reactive } from 'vue';
-import { router } from '@inertiajs/vue3';
+import { ref, computed, reactive, onMounted, onUnmounted } from 'vue';
+import { router, usePage } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 
 const props = defineProps({
@@ -485,6 +485,31 @@ const props = defineProps({
     deviceTypes: { type: Array, default: () => [] },
     initialRoom: { type: String, default: '' },
     user:        { type: Object, default: null },
+});
+
+// ─── Canlı güncelleme (Reverb / WebSocket) ──────────────────────────────────
+// Cihaz durumu MQTT'den geldiğinde backend DeviceStateUpdated event'i yayınlar;
+// burada dinleyip sayfayı yenilemeden cihaz kartlarını güncelleriz.
+const dealerId = usePage().props.auth?.user?.dealer_id;
+let stateChannel = null;
+
+function applyLiveUpdate(payload) {
+    const device = props.devices.find(d => d.id === payload.device_id);
+    if (!device) return;
+    if (payload.is_online !== undefined) device.is_online = payload.is_online;
+    if (payload.state) device.state = { ...device.state, ...payload.state };
+}
+
+onMounted(() => {
+    if (!dealerId || !window.Echo) return;
+    stateChannel = window.Echo.private(`dealer.${dealerId}`)
+        .listen('.device.state', applyLiveUpdate);
+});
+
+onUnmounted(() => {
+    if (dealerId && window.Echo) {
+        window.Echo.leave(`dealer.${dealerId}`);
+    }
 });
 
 // ─── State ─────────────────────────────────────────────────────────────────

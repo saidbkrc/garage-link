@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Events\DeviceStateUpdated;
 use App\Models\Device;
 use App\Models\DeviceType;
 use App\Models\Gateway;
@@ -180,15 +181,22 @@ class MqttSubscribe extends Command
 
         $isOnline = $event === 'device_online';
 
-        $updated = Device::where('ieee_addr', $ieeeAddr)->update([
+        $device = Device::where('ieee_addr', $ieeeAddr)->first();
+
+        if (!$device) {
+            return;
+        }
+
+        $device->update([
             'is_online'    => $isOnline,
             'last_seen_at' => $isOnline ? now() : null,
         ]);
 
-        if ($updated) {
-            $status = $isOnline ? 'online' : 'offline';
-            $this->line("[Bağlantı] {$ieeeAddr} → {$status}");
-        }
+        $status = $isOnline ? 'online' : 'offline';
+        $this->line("[Bağlantı] {$ieeeAddr} → {$status}");
+
+        // Panele canlı yayınla (online/offline rozeti anında güncellensin)
+        DeviceStateUpdated::dispatch($device);
     }
 
     /**
@@ -234,6 +242,9 @@ class MqttSubscribe extends Command
 
         // Cihazı online işaretle
         $device->update(['is_online' => true, 'last_seen_at' => now()]);
+
+        // Panele canlı yayınla
+        DeviceStateUpdated::dispatch($device);
     }
 
     /**
