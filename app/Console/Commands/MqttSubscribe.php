@@ -18,15 +18,15 @@ class MqttSubscribe extends Command
 
     protected $description = 'MQTT broker\'a bağlanır ve cihaz mesajlarını dinler (sürekli çalışır, otomatik yeniden bağlanır)';
 
-    // NOT: Eski protokol topic seti. PIYA yeni protokolünde 'pigasoft/+/scheduler' ve
-    // 'pigasoft/+/errors' de eklenecek (entegrasyon firmware cevabı bekliyor — bkz. görev #7).
     private array $topics = [
         'pigasoft/+/gateway',       // Gateway keşfi
         'pigasoft/+/connectionpub', // Cihaz online/offline
-        'pigasoft/+/data',          // Cihaz durumu güncellemeleri
+        'pigasoft/+/data',          // Cihaz durumu + komut ACK'leri
         'pigasoft/+/devicelist',    // Cihaz listesi
         'pigasoft/+/health',        // Sistem sağlığı
         'pigasoft/+/scan_mode',     // Tarama sonuçları
+        'pigasoft/+/scheduler',     // Zamanlayıcı cevapları (PIYA)
+        'pigasoft/+/errors',        // Gateway hata mesajları (PIYA)
         'pigasoft/+/commands',      // Panel'den gönderilen komutlar (loglama)
     ];
 
@@ -103,7 +103,10 @@ class MqttSubscribe extends Command
         $payload = json_decode($message, true);
 
         if (json_last_error() !== JSON_ERROR_NONE) {
-            Log::warning("MQTT: Geçersiz JSON [{$topic}]: {$message}");
+            // Gateway'in bozuk-JSON heartbeat'i (PIGASOFT/ESP32...) — gürültü yapma, sessiz geç
+            if (!str_contains($message, 'PIGASOFT')) {
+                Log::warning("MQTT: Geçersiz JSON [{$topic}]: {$message}");
+            }
             return;
         }
 
@@ -113,9 +116,34 @@ class MqttSubscribe extends Command
             'data'          => $this->handleData($gatewayId, $payload),
             'devicelist'    => $this->handleDeviceList($gatewayId, $payload),
             'health'        => $this->handleHealth($gatewayId, $payload),
+            'scheduler'     => $this->handleScheduler($gatewayId, $payload),
+            'errors'        => $this->handleErrors($gatewayId, $payload),
             'commands'      => $this->handleCommandLog($gatewayId, $payload),
             default         => null,
         };
+    }
+
+    /**
+     * Zamanlayıcı (SCHED_control / scheduler_remove / scheduler_enable) cevapları.
+     * pigasoft/+/scheduler
+     */
+    protected function handleScheduler(string $gatewayId, array $payload): void
+    {
+        $status = $payload['status'] ?? '?';
+        $msg    = $payload['message'] ?? json_encode($payload, JSON_UNESCAPED_UNICODE);
+        $color  = $status === 'ok' ? 'green' : 'yellow';
+        $this->line("<fg={$color}>[Scheduler]</> {$gatewayId}: {$msg}");
+    }
+
+    /**
+     * Gateway hata mesajları.
+     * pigasoft/+/errors
+     */
+    protected function handleErrors(string $gatewayId, array $payload): void
+    {
+        $msg = $payload['message'] ?? $payload['error'] ?? json_encode($payload, JSON_UNESCAPED_UNICODE);
+        $this->error("[Gateway Error] {$gatewayId}: {$msg}");
+        Log::warning("MQTT gateway error [{$gatewayId}]: {$msg}");
     }
 
     /**
@@ -208,6 +236,13 @@ class MqttSubscribe extends Command
      */
     protected function handleData(string $gatewayId, array $payload): void
     {
+        // Komut ACK'i (switch_control / read_switch_state cevabı) — gerçek state değil, onay.
+        // NOT: Gateway şu an röle kanal durumunu ayrıca yaymıyor; state optimistik izleniyor.
+        if (!isset($payload['ieee_addr']) && isset($payload['status'], $payload['message'])) {
+            $this->line("<fg=gray>[ACK]</> {$gatewayId}: {$payload['message']}");
+            return;
+        }
+
         $ieeeAddr = $payload['ieee_addr'] ?? null;
 
         if (!$ieeeAddr) {

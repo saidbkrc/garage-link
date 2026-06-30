@@ -397,10 +397,12 @@ const formatRelayChannels = (device) => {
         ? device.config.onoff_endpoints
         : Array.from({ length: count }, (_, i) => i + 1);
     const states = deviceState(device)?.channels || {};
+    const names = device.config?.channel_names || [];
     return endpoints.map((ep, i) => ({
         endpoint: ep,
-        name: `Kanal ${i + 1}`,
-        isOn: states[ep] ?? false,
+        name: names[i] || `Kanal ${i + 1}`,
+        // Backend state'i { "1": "on", "2": "off" } formatında — "off" truthy string olduğu için === 'on' şart
+        isOn: states[ep] === 'on',
     }));
 };
 
