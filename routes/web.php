@@ -60,6 +60,14 @@ Route::middleware('auth:dealer')->group(function () {
     // Gateways
     Route::get('/gateways', [GatewayController::class, 'index'])->name('gateways.index');
 
+    // Canlı MQTT izleyici — tarayıcı doğrudan broker'a (WebSocket) bağlanır
+    Route::get('/mqtt-monitor', function () {
+        return Inertia::render('MqttMonitor', [
+            'mqttHost'    => config('mqtt-client.connections.default.host'),
+            'topicPrefix' => 'pigasoft/#',
+        ]);
+    })->name('mqtt-monitor');
+
     //Devices
     Route::get('/devices', [DeviceController::class, 'index'])->name('devices.index');
     Route::post('/devices', [DeviceController::class, 'store'])->name('devices.store');
