@@ -21,6 +21,7 @@
         "@inertiajs/vue3": "^2.3.13",
         "@popperjs/core": "^2.11.8",
         "@vitejs/plugin-vue": "^6.0.3",
+        "mqtt": "^5.15.1",
         "vanilla-calendar-pro": "^3.1.0",
         "vue": "^3.5.27"
     }

@@ -42,6 +42,15 @@
                     <span class="text-sm">Gateway'ler</span>
                 </a>
 
+                <a href="/mqtt-monitor"
+                    class="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors"
+                    :class="isActive('MQTT')
+                        ? 'bg-primary/10 text-primary font-bold'
+                        : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'">
+                    <span class="material-symbols-outlined" :class="isActive('MQTT') ? 'fill-icon' : ''">monitor_heart</span>
+                    <span class="text-sm">MQTT İzleyici</span>
+                </a>
+
                 <a href="/rooms"
                     class="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors"
                     :class="isActive('Odalar') 
