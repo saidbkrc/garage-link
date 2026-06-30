@@ -9,6 +9,9 @@ class CommandSeeder extends Seeder
 {
     public function run(): void
     {
+        // NOT: Bu komutlar ESKİ düz protokol formatında (turn_on/brightness/color + ieee_addr).
+        // Yeni PIYA protokolüne (GatewayCommandBuilder) geçildiğinde yeniden yazılacak
+        // (entegrasyon firmware cevabı bekliyor — bkz. görev #6/#7).
         $commands = [
             // TEMEL KOMUTLAR
             // topic: pigasoft/{gateway_id}/commands — gateway_id runtime'da MqttService tarafından eklenir

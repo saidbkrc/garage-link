@@ -18,6 +18,8 @@ class MqttSubscribe extends Command
 
     protected $description = 'MQTT broker\'a bağlanır ve cihaz mesajlarını dinler (sürekli çalışır, otomatik yeniden bağlanır)';
 
+    // NOT: Eski protokol topic seti. PIYA yeni protokolünde 'pigasoft/+/scheduler' ve
+    // 'pigasoft/+/errors' de eklenecek (entegrasyon firmware cevabı bekliyor — bkz. görev #7).
     private array $topics = [
         'pigasoft/+/gateway',       // Gateway keşfi
         'pigasoft/+/connectionpub', // Cihaz online/offline

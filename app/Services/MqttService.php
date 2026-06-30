@@ -9,6 +9,11 @@ use Illuminate\Support\Facades\Cache;
 use PhpMqtt\Client\ConnectionSettings;
 use PhpMqtt\Client\MqttClient;
 
+/**
+ * NOT: Burası ESKİ düz protokolü (ieee_addr + Command::buildPayload) yayınlar — şu an canlı olan bu.
+ * Yeni PIYA protokolü App\Services\GatewayCommandBuilder'da hazır ama henüz bağlı değil
+ * (entegrasyon firmware cevabı bekliyor — bkz. görev #6/#7).
+ */
 class MqttService
 {
     public function sendCommand(Device $device, Command $command, array $params = [], ?int $userId = null): DeviceLog
