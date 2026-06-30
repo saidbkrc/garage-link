@@ -22,7 +22,11 @@ canlı güncelleme tamamlandı. Aktif iş: PIYA yeni MQTT komut protokolüne ge�
 - Backend: Laravel 12 (PHP 8.2) — web panel + versiyonlu REST API (/api/v1)
 - Frontend: Vue 3 + Inertia.js + Tailwind CSS 4 (Vite)
 - Admin: Laravel Nova 5
-- Auth: Çift guard — `dealer` guard (panel, session bazlı) + Sanctum (API, token bazlı)
+- Auth: Çift guard — `dealer` guard (panel, session bazlı) + Sanctum (API).
+  /api/v1 uçları `auth:dealer,sanctum` ile korunur; pratikte panel çağrıları
+  **dealer session** (Sanctum stateful/SPA) ile, harici istemciler DealerUser
+  token'ı ile doğrulanır. `config/sanctum.php` guard fallback'i `['dealer']`
+  olmalı (`['web']` bırakılırsa Nova admin User session'ı API auth'unu geçer).
   ⚠️ Yeni bir endpoint/sayfa eklerken hangi guard'a ait olduğunu netleştir,
   guard karıştırmak yetkisiz erişime yol açar.
 - IoT/Mesajlaşma: MQTT (php-mqtt/laravel-client), broker: EMQX
@@ -50,14 +54,16 @@ canlı güncelleme tamamlandı. Aktif iş: PIYA yeni MQTT komut protokolüne ge�
 - EnergyUsage: enerji tüketim verisi
 
 ## MQTT / Komut Akışı
-- Komut üretimi: GatewayCommandBuilder (yeni PIYA protokolüne geçiş sürüyor,
-  16 test mevcut)
+- Komut üretimi (ŞU AN CANLI): `Command::buildPayload()` + `MqttService` — eski
+  düz protokol (`ieee_addr` + `turn_on`/`brightness`/`color` gibi düz payload).
+- `GatewayCommandBuilder`: yeni PIYA protokolünün (`switch_control`/`RGB_control`/
+  `CT_control`/`DIM_control`...) zarf üreticisi. **Tamam + 16 test geçiyor AMA henüz
+  hiçbir yere bağlı değil** — entegrasyon firmware'den 2 cevap bekliyor (blocked).
 - Komut gönderimi: MqttService üzerinden yayınlanır
-- Dinleme: `mqtt:subscribe` komutu sürekli çalışan bir process olarak
-  cihazlardan gelen mesajları dinler ve işler
-- ⚠️ MQTT/protokol ile ilgili değişiklik yaparken hangi protokol sürümüne
-  (eski/PIYA yeni) göre çalıştığını netleştir — geçiş süreci devam ediyor,
-  iki protokol bir arada olabilir
+- Dinleme: `mqtt:subscribe` sürekli process olarak cihaz mesajlarını dinler/işler.
+  Abone topic'leri şu an eski set; yeni PIYA `scheduler`/`errors` topic'leri **henüz yok**.
+- ⚠️ Şu an yalnızca ESKİ protokol canlı. PIYA entegrasyonu yapılırken iki protokol
+  geçici olarak bir arada olabilir — hangi sürüme göre çalıştığını netleştir.
 
 ## Konvansiyonlar
 - Minimal, cerrahi değişiklik tercih edilir: dosyanın tamamını yeniden yazma,

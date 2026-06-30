@@ -34,7 +34,10 @@ return [
     |
     */
 
-    'guard' => ['web'],
+    // Panelin /api/v1 çağrıları dealer session ile (Sanctum stateful) doğrulanır.
+    // Fallback 'web' bırakılırsa Nova admin (User) session'ı da API auth'unu geçebilir;
+    // 'dealer' ile bu yan kapı kapatılır ve auth:dealer,sanctum tutarlı olur.
+    'guard' => ['dealer'],
 
     /*
     |--------------------------------------------------------------------------
