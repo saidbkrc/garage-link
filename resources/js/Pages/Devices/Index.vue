@@ -329,6 +329,13 @@
                     <div v-if="editErrors.length" class="px-3 py-2 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200">
                         <p v-for="e in editErrors" :key="e" class="text-xs text-red-600">{{ e }}</p>
                     </div>
+                    <!-- Yeniden eşleştir — "removed"/kirli eşleşmiş cihazları düzeltir -->
+                    <button type="button" @click="repairDevice" :disabled="repairing"
+                        class="w-full py-2.5 rounded-xl border border-amber-300 dark:border-amber-700 text-amber-600 dark:text-amber-400 text-sm font-semibold hover:bg-amber-50 dark:hover:bg-amber-900/20 disabled:opacity-50">
+                        {{ repairing ? 'Gönderiliyor…' : '🔄 Yeniden Eşleştir (reset & pair)' }}
+                    </button>
+                    <p class="text-[11px] text-slate-400 -mt-2">Cihaz "removed"/kirli eşleşmişse: gateway'i tarama moduna alır + cihazı sıfırlar, temiz katılır.</p>
+
                     <div class="flex gap-3 pt-1">
                         <button type="button" @click="editTarget = null"
                             class="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-sm font-medium">
@@ -602,6 +609,29 @@ const isRelay = computed(() => {
     const selected = props.deviceTypes.find(dt => dt.id === editForm.value.device_type_id);
     return selected?.slug === 'relay' || editTarget.value.type === 'relay';
 });
+
+// Cihazı gateway'ine temiz yeniden eşleştir (scan_mode + factory_reset)
+const repairing = ref(false);
+const repairDevice = async () => {
+    if (!editTarget.value) return;
+    repairing.value = true;
+    try {
+        const res = await fetch(`/api/v1/devices/${editTarget.value.id}/repair`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content ?? '',
+            },
+        });
+        const data = await res.json().catch(() => ({}));
+        showToast(data.message || (res.ok ? 'Yeniden eşleştirme başlatıldı' : 'İşlem başarısız'));
+    } catch (e) {
+        showToast('Hata: ' + e.message);
+    } finally {
+        repairing.value = false;
+    }
+};
 
 const saveEdit = () => {
     savingEdit.value = true;
