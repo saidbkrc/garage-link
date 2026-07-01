@@ -27,6 +27,7 @@ class MqttSubscribe extends Command
         'pigasoft/+/scan_mode',     // Tarama sonuçları
         'pigasoft/+/scheduler',     // Zamanlayıcı cevapları (PIYA)
         'pigasoft/+/errors',        // Gateway hata mesajları (PIYA)
+        'pigasoft/+/switchstate',   // Röle kanal durumu (PIYA — gerçek state)
         'pigasoft/+/commands',      // Panel'den gönderilen komutlar (loglama)
     ];
 
@@ -118,9 +119,54 @@ class MqttSubscribe extends Command
             'health'        => $this->handleHealth($gatewayId, $payload),
             'scheduler'     => $this->handleScheduler($gatewayId, $payload),
             'errors'        => $this->handleErrors($gatewayId, $payload),
+            'switchstate'   => $this->handleSwitchState($gatewayId, $payload),
             'commands'      => $this->handleCommandLog($gatewayId, $payload),
             default         => null,
         };
+    }
+
+    /**
+     * Röle kanal durumu — GERÇEK state (PIYA firmware).
+     * pigasoft/+/switchstate
+     * Payload: {"ieee":"58DE...","endpoint1":"on","endpoint2":"off",...}
+     * Optimistik state'i ezer, panele Reverb ile canlı yansır.
+     */
+    protected function handleSwitchState(string $gatewayId, array $payload): void
+    {
+        $ieee = $payload['ieee'] ?? $payload['ieee_addr'] ?? null;
+        if (!$ieee) {
+            return;
+        }
+
+        $device = Device::where('ieee_addr', $ieee)->first();
+        if (!$device) {
+            return;
+        }
+
+        // endpoint1..N anahtarlarını { "1":"on", "2":"off", ... } kanal haritasına çevir
+        $channels = [];
+        foreach ($payload as $key => $val) {
+            if (preg_match('/^endpoint(\d+)$/', (string) $key, $m)) {
+                $channels[$m[1]] = $val;
+            }
+        }
+        if (!$channels) {
+            return;
+        }
+
+        $device->updateState(['channels' => $channels]);
+
+        $cacheKey = "device:{$device->id}:state";
+        $state = Cache::get($cacheKey, []);
+        $state['channels'] = $channels;
+        $state['last_updated'] = now()->toDateTimeString();
+        Cache::put($cacheKey, $state, 86400);
+
+        $device->update(['is_online' => true, 'last_seen_at' => now()]);
+
+        DeviceStateUpdated::dispatch($device);
+
+        $this->line("<fg=green>[SwitchState]</> {$ieee}: " . json_encode($channels, JSON_UNESCAPED_UNICODE));
     }
 
     /**

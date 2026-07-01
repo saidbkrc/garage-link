@@ -33,6 +33,7 @@ Route::prefix('v1')->group(function () {
         Route::delete('/devices/{id}', [DeviceController::class, 'destroy']);
         Route::get('/devices/{id}/state', [DeviceController::class, 'state']);
         Route::post('/devices/{id}/command', [DeviceController::class, 'sendCommand']);
+        Route::post('/devices/{id}/repair', [DeviceController::class, 'repair']);   // temiz yeniden eşleştirme
 
         // Commands
         Route::get('/commands', [CommandController::class, 'index']);

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Models\Device;
 use App\Models\Command;
+use App\Services\GatewayCommandBuilder;
 use App\Services\MqttService;
 use Illuminate\Http\Request;
 
@@ -235,6 +236,39 @@ class DeviceController extends Controller
                 'command' => $request->command_slug,
                 'payload' => $log->request_payload,
             ],
+        ]);
+    }
+
+    /**
+     * Cihazı gateway'ine temiz yeniden eşleştir (PIYA transfer prosedürü).
+     * Gateway'i scan_mode'a alır + cihaza piya_factory_reset gönderir → cihaz sıfırlanıp yeniden katılır.
+     * "removed"/kirli eşleşme durumundaki cihazları düzeltmek için.
+     * POST /api/v1/devices/{id}/repair
+     */
+    public function repair(Request $request, $id)
+    {
+        $dealerId = $request->user()->dealer_id;
+        $device = Device::with('gateway')->where('dealer_id', $dealerId)->findOrFail($id);
+
+        $gatewayId = $device->gateway?->gateway_id;
+        if (!$gatewayId || !$device->ieee_addr) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Cihazın gateway veya IEEE bilgisi eksik; yeniden eşleştirilemiyor.',
+            ], 422);
+        }
+
+        $b = new GatewayCommandBuilder();
+        $topic = "pigasoft/{$gatewayId}/commands";
+
+        // 1) Hedef gateway'i tarama moduna al (yeni katılımı kabul etsin)
+        $this->mqttService->publishRaw($topic, json_encode($b->scanMode(60), JSON_UNESCAPED_SLASHES));
+        // 2) Cihazı fabrika ayarına döndür → kirli eşleşmeyi sıfırlar, yeniden katılır
+        $this->mqttService->publishRaw($topic, json_encode($b->factoryReset($device->ieee_addr), JSON_UNESCAPED_SLASHES));
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Yeniden eşleştirme başlatıldı: gateway 60 sn tarama modunda, cihaz sıfırlanıyor. Birkaç saniye içinde yeniden katılır.',
         ]);
     }
 }
