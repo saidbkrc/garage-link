@@ -126,6 +126,18 @@ class MqttSubscribe extends Command
     }
 
     /**
+     * Reverb'e canlı yayın — Reverb kapalı/yavaşsa dinleyiciyi ASLA çökertmesin/yavaşlatmasın.
+     */
+    private function broadcastState(Device $device): void
+    {
+        try {
+            DeviceStateUpdated::dispatch($device);
+        } catch (\Throwable $e) {
+            Log::warning('Broadcast atlandı (Reverb?): ' . $e->getMessage());
+        }
+    }
+
+    /**
      * Röle kanal durumu — GERÇEK state (PIYA firmware).
      * pigasoft/+/switchstate
      * Payload: {"ieee":"58DE...","endpoint1":"on","endpoint2":"off",...}
@@ -164,7 +176,7 @@ class MqttSubscribe extends Command
 
         $device->update(['is_online' => true, 'last_seen_at' => now()]);
 
-        DeviceStateUpdated::dispatch($device);
+        $this->broadcastState($device);
 
         $this->line("<fg=green>[SwitchState]</> {$ieee}: " . json_encode($channels, JSON_UNESCAPED_UNICODE));
     }
@@ -272,7 +284,7 @@ class MqttSubscribe extends Command
         $this->line("[Bağlantı] {$ieeeAddr} → {$status}");
 
         // Panele canlı yayınla (online/offline rozeti anında güncellensin)
-        DeviceStateUpdated::dispatch($device);
+        $this->broadcastState($device);
     }
 
     /**
@@ -327,7 +339,7 @@ class MqttSubscribe extends Command
         $device->update(['is_online' => true, 'last_seen_at' => now()]);
 
         // Panele canlı yayınla
-        DeviceStateUpdated::dispatch($device);
+        $this->broadcastState($device);
     }
 
     /**
